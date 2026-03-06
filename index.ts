@@ -24,23 +24,21 @@ export default function register(api: OpenClawPluginApi) {
   const lifecycle = new AutomatonLifecycleManager(api);
 
   // 工具 1: automaton_check_spend
-  api.registerTool(createSpendTrackerTool(api, lifecycle) as unknown as AnyAgentTool, {
-    optional: true,
-  });
+  api.registerTool(createSpendTrackerTool(api, lifecycle) as unknown as AnyAgentTool);
 
   // 工具 2-3: automaton_heartbeat_report / automaton_heartbeat_status
   for (const tool of createAdaptiveHeartbeatTools(api, lifecycle)) {
-    api.registerTool(tool as unknown as AnyAgentTool, { optional: true });
+    api.registerTool(tool as unknown as AnyAgentTool);
   }
 
   // 工具 4-7: 结构化记忆日志（记录/检索事件、保存/检索 SOP）
   for (const tool of createMemoryJournalTools(api, lifecycle)) {
-    api.registerTool(tool as unknown as AnyAgentTool, { optional: true });
+    api.registerTool(tool as unknown as AnyAgentTool);
   }
 
   // 工具 8-9: SOUL.md 自省（分析 + 写入）
   const { reflectTool, updateTool } = createSoulReflectionTool(api, lifecycle);
-  api.registerTool(reflectTool as unknown as AnyAgentTool, { optional: true });
-  api.registerTool(updateTool as unknown as AnyAgentTool, { optional: true });
+  api.registerTool(reflectTool as unknown as AnyAgentTool);
+  api.registerTool(updateTool as unknown as AnyAgentTool);
 }
 

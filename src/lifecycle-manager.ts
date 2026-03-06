@@ -8,7 +8,7 @@
  *  4. 对外提供 getSurvivalTier() / getConfig() 等查询接口
  */
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/llm-task";
-import { getTodaySpend } from "./spend-tracker.js";
+import { getWalletState } from "./spend-tracker.js";
 import { computeTier } from "./survival-tier.js";
 import type { SurvivalTier } from "./survival-tier.js";
 
@@ -73,12 +73,12 @@ export class AutomatonLifecycleManager {
 
     /**
      * 刷新并返回当前 Survival Tier。
-     * 每次调用都重新读取今日花费，保证实时性。
+     * 每次调用都重新读取账户余额，保证实时性。
      */
     getSurvivalTier(): SurvivalTier {
-        const spend = getTodaySpend(this.cfg.dbPath);
+        const state = getWalletState(this.cfg.dbPath);
         this._tier = computeTier({
-            spentUsd: spend.totalCostUsd,
+            balanceUsd: state.balanceUsd,
             dailyBudgetUsd: this.cfg.dailyBudgetUsd,
             lowComputeThresholdPct: this.cfg.lowComputeThresholdPct,
             criticalThresholdPct: this.cfg.criticalThresholdPct,

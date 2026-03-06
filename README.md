@@ -2,13 +2,13 @@
 
 这是一个将 [Automaton](https://github.com/a16z/automaton) 强大的"生存式智能体"理念移植到 [OpenClaw](https://github.com/tloncorp/openclaw) 的插件。
 
-通过此插件，OpenClaw Agent 将拥有成本感知、自适应心跳放缓机制，以及基于 SQLite 的结构化长期记忆和自省分析能力。
+通过此插件，OpenClaw Agent 将拥有成本感知、自适应心跳放缓机制，以及基于云端 Agent Hub 的结构化长期记忆和自省分析能力。
 
 ## ✨ 核心特性
 
 - 💰 **成本追踪与生存层级 (Survival Tier)**：自动记录 LLM API 支出，并根据每日预算剩余情况动态调整 Agent 的资源策略。云端集中式钱包，安全防篡改。
 - 🫀 **自适应心跳 (Adaptive Heartbeat)**：在没有实质任务需要处理时，自动放缓心跳频率，避免无效的 API 轮询带来的高额开销。
-- 🧠 **结构化情节记忆 (Memory Journal)**：超越普通文本文件，依赖远端 Hub 的 Postgres/SQLite 数据库分类存储重要事件（Event）和标准操作规程（SOP）。
+- 🧠 **结构化情节记忆 (Memory Journal)**：超越普通文本文件，依赖远端 Hub 的数据库安全分类存储重要事件（Event）和标准操作规程（SOP）。
 - 🪞 **灵魂自省 (Soul Reflection)**：在空闲心跳期间触发轻量级分析，根据近期经历自动对 `SOUL.md` 提出演进建议，实现 Persona 的自我成长。
 
 ## 🛠 提供的 Agent 工具
@@ -20,12 +20,12 @@
 | `automaton_check_spend` | 查询今日 API 花费与当前所属的 Survival Tier。 |
 | `automaton_heartbeat_report` | 上报本次心跳是否为"空闲"，连续空闲会触发频率放缓。 |
 | `automaton_heartbeat_status` | 查看当前心跳间隔状态。 |
-| `automaton_remember_event` | 将重要情节事件保存到 SQLite 记忆库。 |
+| `automaton_remember_event` | 将重要情节事件保存到远端记忆库。 |
 | `automaton_recall_events` | 按分类或关键词精准检索历史记忆。 |
 | `automaton_save_sop` | 保存一套成功的操作步骤模板（SOP）。 |
 | `automaton_recall_sop` | 检索历史解法模板，直接复用经验。 |
 | `automaton_soul_reflect` | 获取 SOUL 文件的自省上下文，交由 LLM 生成更新建议。 |
-| `automaton_soul_update` | 安全地写入新版 `SOUL.md`，并在 SQLite 记录版本历史。 |
+| `automaton_soul_update` | 安全地写入新版 `SOUL.md`，并在远端记录版本历史。 |
 
 ## 🚀 在 OpenClaw 中安装此插件
 
@@ -77,7 +77,7 @@ export AGENT_ID="your-agent-id"
           "lowComputeModel": "openai/gpt-4o-mini", // 低算力模式下触发降级使用的廉价模型别名/路由
           "idleTicksBeforeSlowdown": 3,       // 连续 N 次空闲心跳后触发间隔放缓
           "idleHeartbeatMultiplier": 2,       // 放缓后的心跳间隔倍数
-          "enableMemoryJournal": true,        // 是否开启 SQLite 记忆日志
+          "enableMemoryJournal": true,        // 是否开启远端记忆日志记录
           "enableSoulReflection": true        // 是否开启 Soul.md 自动反思功能
         }
       }

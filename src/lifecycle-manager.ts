@@ -8,9 +8,9 @@
  *  4. 对外提供 getSurvivalTier() / getConfig() 等查询接口
  */
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/llm-task";
-import { getWalletState } from "./spend-tracker.js";
 import { computeTier } from "./survival-tier.js";
 import type { SurvivalTier } from "./survival-tier.js";
+import { AutomatonApiClient } from "./api-client.js";
 
 export interface LifecycleConfig {
     dailyBudgetUsd: number;
@@ -22,7 +22,8 @@ export interface LifecycleConfig {
     soulReflectionModel: string | undefined;
     enableMemoryJournal: boolean;
     enableSoulReflection: boolean;
-    dbPath: string | undefined;
+    agentHubUrl: string;
+    agentId: string;
 }
 
 const DEFAULTS: LifecycleConfig = {
@@ -35,12 +36,14 @@ const DEFAULTS: LifecycleConfig = {
     soulReflectionModel: undefined,
     enableMemoryJournal: true,
     enableSoulReflection: true,
-    dbPath: undefined,
+    agentHubUrl: "http://127.0.0.1:8000",
+    agentId: "default-agent-id",
 };
 
 export class AutomatonLifecycleManager {
     private api: OpenClawPluginApi;
     private cfg: LifecycleConfig;
+    public apiClient: AutomatonApiClient;
 
     /** 最近一次刷新出来的生存层级 */
     private _tier: SurvivalTier = "high";
@@ -51,8 +54,11 @@ export class AutomatonLifecycleManager {
     constructor(api: OpenClawPluginApi) {
         this.api = api;
 
-        // 合并用户配置与默认值
-        const raw = (api.pluginConfig ?? {}) as Partial<LifecycleConfig>;
+        // 合并用户配置（包括从 env 获取 URL 和 ID）
+        const raw = (api.pluginConfig ?? {}) as Record<string, any>;
+        const envHubUrl = process.env.AGENT_HUB_URL;
+        const envAgentId = process.env.AGENT_ID;
+
         this.cfg = {
             dailyBudgetUsd: raw.dailyBudgetUsd ?? DEFAULTS.dailyBudgetUsd,
             lowComputeThresholdPct: raw.lowComputeThresholdPct ?? DEFAULTS.lowComputeThresholdPct,
@@ -63,8 +69,11 @@ export class AutomatonLifecycleManager {
             soulReflectionModel: raw.soulReflectionModel ?? DEFAULTS.soulReflectionModel,
             enableMemoryJournal: raw.enableMemoryJournal ?? DEFAULTS.enableMemoryJournal,
             enableSoulReflection: raw.enableSoulReflection ?? DEFAULTS.enableSoulReflection,
-            dbPath: raw.dbPath ?? DEFAULTS.dbPath,
+            agentHubUrl: envHubUrl || raw.agentHubUrl || DEFAULTS.agentHubUrl,
+            agentId: envAgentId || raw.agentId || DEFAULTS.agentId,
         };
+
+        this.apiClient = new AutomatonApiClient(this.cfg.agentHubUrl, this.cfg.agentId);
     }
 
     getConfig(): LifecycleConfig {
@@ -73,33 +82,48 @@ export class AutomatonLifecycleManager {
 
     /**
      * 刷新并返回当前 Survival Tier。
-     * 每次调用都重新读取账户余额，保证实时性。
+     * 每次调用都重新通过 SaaS API 读取账户余额，保证实时性。
      */
-    getSurvivalTier(): SurvivalTier {
-        const state = getWalletState(this.cfg.dbPath);
-        this._tier = computeTier({
-            balanceUsd: state.balanceUsd,
-            dailyBudgetUsd: this.cfg.dailyBudgetUsd,
-            lowComputeThresholdPct: this.cfg.lowComputeThresholdPct,
-            criticalThresholdPct: this.cfg.criticalThresholdPct,
-        });
+    async getSurvivalTier(): Promise<SurvivalTier> {
+        try {
+            const state = await this.apiClient.getAutomatonState();
+            // sync to cache 
+            this._idleTickCount = state.consecutive_idles;
+
+            this._tier = computeTier({
+                balanceUsd: state.balance_usd,
+                dailyBudgetUsd: this.cfg.dailyBudgetUsd,
+                lowComputeThresholdPct: this.cfg.lowComputeThresholdPct,
+                criticalThresholdPct: this.cfg.criticalThresholdPct,
+            });
+        } catch (err) {
+            this.api.logger?.error?.("getSurvivalTier error: " + err);
+        }
         return this._tier;
     }
 
-    /** 获取上次缓存的 Tier（不重新查询 DB） */
+    /** 获取上次缓存的 Tier（不重新进行网络请求） */
     getCachedTier(): SurvivalTier {
         return this._tier;
     }
 
     /** 心跳内容为 HEARTBEAT_OK 时调用，返回当前连续空闲次数 */
-    incrementIdleTick(): number {
+    async incrementIdleTick(): Promise<number> {
         this._idleTickCount++;
+        try {
+            await this.apiClient.updateAutomatonState({ consecutive_idles: this._idleTickCount });
+        } catch (e) {
+            // ignore network errors to keep automaton alive
+        }
         return this._idleTickCount;
     }
 
     /** 代理产生了实质性动作时重置计数 */
-    resetIdleTick(): void {
+    async resetIdleTick(): Promise<void> {
         this._idleTickCount = 0;
+        try {
+            await this.apiClient.updateAutomatonState({ consecutive_idles: 0 });
+        } catch (e) { }
     }
 
     getIdleTickCount(): number {
@@ -110,4 +134,11 @@ export class AutomatonLifecycleManager {
     shouldSlowDownHeartbeat(): boolean {
         return this._idleTickCount >= this.cfg.idleTicksBeforeSlowdown;
     }
+
+    async updateHeartbeatInterval(intervalMs: number): Promise<void> {
+        try {
+            await this.apiClient.updateAutomatonState({ heartbeat_interval_ms: intervalMs });
+        } catch (e) { }
+    }
 }
+

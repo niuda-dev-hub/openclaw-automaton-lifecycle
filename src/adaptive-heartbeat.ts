@@ -1,5 +1,5 @@
 /**
- * Adaptive Heartbeat — 自适应心跳频率调整
+ * Adaptive Heartbeat — 自适应心跳频率调整（SaaS API 版）
  *
  * 逻辑：
  *  - 若连续 N 次心跳均为 HEARTBEAT_OK（无实质动作），
@@ -17,57 +17,15 @@
  */
 import { Type } from "@sinclair/typebox";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/llm-task";
-import { loadStore, saveStore } from "./db.js";
 import type { AutomatonLifecycleManager } from "./lifecycle-manager.js";
 
-const KV_BASE_INTERVAL = "heartbeat_base_interval_min";
-const KV_CURRENT_INTERVAL = "heartbeat_current_interval_min";
-
-/** 读取 KV 状态 */
-function readKv(key: string, dbPath?: string): string | null {
-    const store = loadStore(dbPath);
-    return store.heartbeat_state[key] ?? null;
-}
-
-/** 写入 KV 状态 */
-function writeKv(key: string, value: string, dbPath?: string): void {
-    const store = loadStore(dbPath);
-    store.heartbeat_state[key] = value;
-    saveStore(dbPath);
-}
-
-/** 读取基准和当前心跳间隔（分钟） */
-export function getHeartbeatIntervals(dbPath?: string): {
-    baseMin: number;
-    currentMin: number;
-} {
-    const base = parseInt(readKv(KV_BASE_INTERVAL, dbPath) ?? "30", 10);
-    const current = parseInt(readKv(KV_CURRENT_INTERVAL, dbPath) ?? String(base), 10);
-    return { baseMin: base, currentMin: current };
-}
-
-/** 将当前间隔乘以 multiplier（放缓心跳） */
-function slowDownHeartbeat(multiplier: number, dbPath?: string): number {
-    const { baseMin, currentMin } = getHeartbeatIntervals(dbPath);
-    const maxMin = baseMin * 4; // 最多放缓到基准的 4 倍
-    const newMin = Math.min(currentMin * multiplier, maxMin);
-    writeKv(KV_CURRENT_INTERVAL, String(newMin), dbPath);
-    return newMin;
-}
-
-/** 还原心跳间隔到基准值 */
-function resetHeartbeat(dbPath?: string): number {
-    const { baseMin } = getHeartbeatIntervals(dbPath);
-    writeKv(KV_CURRENT_INTERVAL, String(baseMin), dbPath);
-    return baseMin;
-}
+const BASE_INTERVAL_MS = 30 * 60 * 1000; // 默认 30 分钟为基准
 
 /** 创建 automaton_heartbeat_report 和 automaton_heartbeat_status 工具 */
 export function createAdaptiveHeartbeatTools(
     api: OpenClawPluginApi,
     lifecycle: AutomatonLifecycleManager,
 ) {
-    const dbPath = (api.pluginConfig as Record<string, string>)?.dbPath;
     const cfg = lifecycle.getConfig();
 
     // Tool 1: automaton_heartbeat_report
@@ -91,27 +49,45 @@ export function createAdaptiveHeartbeatTools(
         async execute(_id: string, params: Record<string, unknown>) {
             const isIdle = params.is_idle === true;
             let message: string;
-            let newInterval: number | undefined;
+            let currentMs: number;
+
+            try {
+                const state = await lifecycle.apiClient.getAutomatonState();
+                currentMs = state.heartbeat_interval_ms || BASE_INTERVAL_MS;
+            } catch (e) {
+                currentMs = BASE_INTERVAL_MS;
+            }
+
+            let newIntervalMs = currentMs;
 
             if (isIdle) {
-                const idleCount = lifecycle.incrementIdleTick();
+                const idleCount = await lifecycle.incrementIdleTick();
                 if (lifecycle.shouldSlowDownHeartbeat()) {
-                    newInterval = slowDownHeartbeat(cfg.idleHeartbeatMultiplier, dbPath);
+                    const maxMs = BASE_INTERVAL_MS * 4;
+                    newIntervalMs = Math.min(currentMs * cfg.idleHeartbeatMultiplier, maxMs);
+                    await lifecycle.updateHeartbeatInterval(newIntervalMs);
                     message =
-                        `🌙 连续空闲 ${idleCount} 次，已将心跳间隔延长至 **${newInterval} 分钟**（深度休眠模式）。`;
+                        `🌙 连续空闲 ${idleCount} 次，已将心跳间隔延长至 **${newIntervalMs / 60000} 分钟**（深度休眠模式）。`;
                 } else {
-                    const { currentMin } = getHeartbeatIntervals(dbPath);
-                    message = `😴 空闲次数：${idleCount}/${cfg.idleTicksBeforeSlowdown}，当前间隔 ${currentMin} 分钟。`;
+                    message = `😴 空闲次数：${idleCount}/${cfg.idleTicksBeforeSlowdown}，当前间隔 ${currentMs / 60000} 分钟。`;
                 }
             } else {
-                lifecycle.resetIdleTick();
-                newInterval = resetHeartbeat(dbPath);
-                message = `⚡ 检测到实质工作，心跳间隔已重置为 **${newInterval} 分钟**。`;
+                await lifecycle.resetIdleTick();
+                newIntervalMs = BASE_INTERVAL_MS;
+                await lifecycle.updateHeartbeatInterval(newIntervalMs);
+                message = `⚡ 检测到实质工作，心跳间隔已重置为 **${newIntervalMs / 60000} 分钟**。`;
+            }
+
+            if (params.summary) {
+                // optionally record to events if it was substantial
+                if (!isIdle) {
+                    await lifecycle.apiClient.recordEvent("heartbeat_active", String(params.summary));
+                }
             }
 
             return {
                 content: [{ type: "text", text: message }],
-                details: { isIdle, idleTickCount: lifecycle.getIdleTickCount(), newIntervalMin: newInterval },
+                details: { isIdle, idleTickCount: lifecycle.getIdleTickCount(), newIntervalMin: newIntervalMs / 60000 },
             };
         },
     };
@@ -124,9 +100,16 @@ export function createAdaptiveHeartbeatTools(
         parameters: Type.Object({}),
 
         async execute(_id: string, _params: Record<string, unknown>) {
-            const { baseMin, currentMin } = getHeartbeatIntervals(dbPath);
+            let currentMs = BASE_INTERVAL_MS;
+            try {
+                const state = await lifecycle.apiClient.getAutomatonState();
+                currentMs = state.heartbeat_interval_ms;
+            } catch (e) { }
+
+            const baseMin = BASE_INTERVAL_MS / 60000;
+            const currentMin = currentMs / 60000;
             const idleCount = lifecycle.getIdleTickCount();
-            const tier = lifecycle.getSurvivalTier();
+            const tier = await lifecycle.getSurvivalTier();
 
             return {
                 content: [

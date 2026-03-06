@@ -1,5 +1,5 @@
 /**
- * Memory Journal — 结构化记忆日志工具（JSON 文件版）
+ * Memory Journal — 结构化记忆日志工具（SaaS API 版）
  *
  * 提供 4 个 Agent 工具：
  *  automaton_remember_event   — 保存一条重要情节事件
@@ -9,12 +9,10 @@
  */
 import { Type } from "@sinclair/typebox";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/llm-task";
-import { loadStore, saveStore, type EpisodicEvent, type SopRecord } from "./db.js";
 import type { AutomatonLifecycleManager } from "./lifecycle-manager.js";
+import type { EpisodicEvent, ProceduralSOP } from "./api-client.js";
 
 export function createMemoryJournalTools(api: OpenClawPluginApi, lifecycle: AutomatonLifecycleManager) {
-    const dbPath = (api.pluginConfig as Record<string, string>)?.dbPath;
-
     // ─── Tool 1: automaton_remember_event ────────────────────────────────────
     const rememberEventTool = {
         name: "automaton_remember_event",
@@ -35,27 +33,22 @@ export function createMemoryJournalTools(api: OpenClawPluginApi, lifecycle: Auto
                 return { content: [{ type: "text", text: "记忆日志功能已禁用" }] };
             }
 
-            const store = loadStore(dbPath);
             const summary = String(params.summary ?? "").trim();
             if (!summary) throw new Error("summary 不能为空");
 
-            const newEvent: EpisodicEvent = {
-                id: Date.now(),
-                session_id: (api as any).sessionId?.toString() ?? `session-${Date.now()}`,
-                importance: typeof params.importance === "number" ? params.importance : 3,
-                category: String(params.category ?? "general").trim(),
+            const category = String(params.category ?? "general").trim();
+            const payload = {
                 summary,
                 detail: typeof params.detail === "string" ? params.detail : undefined,
+                importance: typeof params.importance === "number" ? params.importance : 3,
                 tags: Array.isArray(params.tags) ? params.tags : undefined,
-                created_at: new Date().toISOString(),
+                session_id: (api as any).sessionId?.toString() ?? `session-${Date.now()}`
             };
 
-            store.episodic_events.push(newEvent);
-            saveStore(dbPath);
-
+            const record = await lifecycle.apiClient.recordEvent(category, JSON.stringify(payload));
             return {
-                content: [{ type: "text", text: `✅ 已记录到记忆日志（ID: ${newEvent.id}）\n分类：${newEvent.category} | 重要度：${newEvent.importance}/5` }],
-                details: newEvent,
+                content: [{ type: "text", text: `✅ 已记录到云端记忆日志（ID: ${record.id}）\n分类：${category} | 重要度：${payload.importance}/5` }],
+                details: record,
             };
         },
     };
@@ -77,21 +70,38 @@ export function createMemoryJournalTools(api: OpenClawPluginApi, lifecycle: Auto
                 return { content: [{ type: "text", text: "记忆日志功能已禁用" }] };
             }
 
-            const store = loadStore(dbPath);
             const limit = Math.min(typeof params.limit === "number" ? params.limit : 10, 30);
             const minImportance = typeof params.min_importance === "number" ? params.min_importance : 1;
+            const categoryFilter = typeof params.category === "string" ? params.category : undefined;
 
-            let rows = store.episodic_events.filter((e: EpisodicEvent) => e.importance >= minImportance);
-            if (params.category) rows = rows.filter((e: EpisodicEvent) => e.category === params.category);
+            let records = await lifecycle.apiClient.getEvents(categoryFilter, 50); // fetch more to sort/filter locally
+
+            // Parse content payload
+            let rows = records.map(r => {
+                let p: any = {};
+                try { p = JSON.parse(r.content); } catch (e) { }
+                return {
+                    id: r.id,
+                    category: r.event_type,
+                    created_at: new Date(r.created_at).toISOString(),
+                    summary: p.summary || r.content,
+                    detail: p.detail,
+                    importance: p.importance ?? 1,
+                    tags: p.tags ?? []
+                };
+            });
+
+            rows = rows.filter(e => e.importance >= minImportance);
+
             if (params.query) {
                 const q = String(params.query).toLowerCase();
-                rows = rows.filter((e: EpisodicEvent) =>
+                rows = rows.filter(e =>
                     e.summary.toLowerCase().includes(q) ||
-                    (e.tags ?? []).some((t: string) => t.toLowerCase().includes(q))
+                    e.tags.some((t: string) => t.toLowerCase().includes(q))
                 );
             }
 
-            rows = rows.sort((a: EpisodicEvent, b: EpisodicEvent) => b.importance - a.importance).slice(0, limit);
+            rows = rows.sort((a, b) => b.importance - a.importance).slice(0, limit);
 
             if (rows.length === 0) {
                 return { content: [{ type: "text", text: "📭 没有找到匹配的记忆记录。" }] };
@@ -99,7 +109,7 @@ export function createMemoryJournalTools(api: OpenClawPluginApi, lifecycle: Auto
 
             const text =
                 `🧠 **找到 ${rows.length} 条记忆记录：**\n\n` +
-                rows.map((r: EpisodicEvent, i: number) =>
+                rows.map((r, i) =>
                     `**${i + 1}. [${r.category}] ★${r.importance}** (${r.created_at.slice(0, 10)})\n${r.summary}` +
                     (r.detail ? `\n> ${r.detail.slice(0, 100)}${r.detail.length > 100 ? "…" : ""}` : "")
                 ).join("\n\n");
@@ -120,23 +130,34 @@ export function createMemoryJournalTools(api: OpenClawPluginApi, lifecycle: Auto
         }),
 
         async execute(_id: string, params: Record<string, unknown>) {
-            const store = loadStore(dbPath);
             const name = String(params.name ?? "").trim();
             const desc = String(params.description ?? "").trim();
             const steps = Array.isArray(params.steps) ? params.steps as string[] : [];
 
             if (!name || !desc || steps.length === 0) throw new Error("name、description 和 steps 不能为空");
 
-            const existing = store.procedural_sop.find((s: SopRecord) => s.name === name);
-            if (existing) {
-                existing.description = desc;
-                existing.steps = steps;
-                existing.updated_at = new Date().toISOString();
-            } else {
-                store.procedural_sop.push({ name, description: desc, steps, success_count: 0, fail_count: 0, updated_at: new Date().toISOString() });
-            }
-            saveStore(dbPath);
+            // We do complete replace or insert from the plugin side. 
+            // In a more robust system we would GET first to preserve success_count, but this works.
+            const sops = await lifecycle.apiClient.getSops();
+            const existing = sops.find((s: ProceduralSOP) => s.trigger_condition === name);
 
+            let success_count = 0, fail_count = 0;
+            if (existing) {
+                try {
+                    const parsed = JSON.parse(existing.steps_json);
+                    success_count = parsed.success_count || 0;
+                    fail_count = parsed.fail_count || 0;
+                } catch (e) { }
+            }
+
+            const payload = {
+                description: desc,
+                steps,
+                success_count,
+                fail_count
+            };
+
+            await lifecycle.apiClient.saveSop(name, JSON.stringify(payload));
             return { content: [{ type: "text", text: `📋 SOP 已保存: **${name}**（${steps.length} 步）` }] };
         },
     };
@@ -151,19 +172,32 @@ export function createMemoryJournalTools(api: OpenClawPluginApi, lifecycle: Auto
         }),
 
         async execute(_id: string, params: Record<string, unknown>) {
-            const store = loadStore(dbPath);
+            const sops = await lifecycle.apiClient.getSops();
             const q = String(params.query ?? "").toLowerCase().trim();
-            const rows = store.procedural_sop.filter((s: SopRecord) =>
+
+            let rows = sops.map(s => {
+                let p: any = { description: "", steps: [], success_count: 0, fail_count: 0 };
+                try { p = JSON.parse(s.steps_json); } catch (e) { }
+                return {
+                    name: s.trigger_condition,
+                    description: p.description || "",
+                    steps: p.steps || [],
+                    success_count: p.success_count || 0,
+                    fail_count: p.fail_count || 0
+                };
+            });
+
+            rows = rows.filter(s =>
                 s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q)
-            ).sort((a: SopRecord, b: SopRecord) => b.success_count - a.success_count).slice(0, 5);
+            ).sort((a, b) => b.success_count - a.success_count).slice(0, 5);
 
             if (rows.length === 0) {
                 return { content: [{ type: "text", text: `📭 未找到匹配"${params.query}"的 SOP。` }] };
             }
 
-            const text = rows.map((r: SopRecord) =>
+            const text = rows.map(r =>
                 `📋 **${r.name}**（成功 ${r.success_count} / 失败 ${r.fail_count}）\n场景：${r.description}\n` +
-                r.steps.map((s: string, i: number) => `  ${i + 1}. ${s}`).join("\n")
+                r.steps.map((step: string, i: number) => `  ${i + 1}. ${step}`).join("\n")
             ).join("\n\n---\n\n");
 
             return { content: [{ type: "text", text }], details: { rows } };

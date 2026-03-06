@@ -6,9 +6,9 @@
 
 ## ✨ 核心特性
 
-- 💰 **成本追踪与生存层级 (Survival Tier)**：自动记录 LLM API 支出，并根据每日预算剩余情况动态调整 Agent 的资源策略（例如在濒临超支时自动降级到便宜模型）。
+- 💰 **成本追踪与生存层级 (Survival Tier)**：自动记录 LLM API 支出，并根据每日预算剩余情况动态调整 Agent 的资源策略。云端集中式钱包，安全防篡改。
 - 🫀 **自适应心跳 (Adaptive Heartbeat)**：在没有实质任务需要处理时，自动放缓心跳频率，避免无效的 API 轮询带来的高额开销。
-- 🧠 **结构化情节记忆 (Memory Journal)**：超越普通文本文件，使用 SQLite 数据库分类存储重要事件（Event）和标准操作规程（SOP），使得跨会话的经验积累和精准召回成为可能。
+- 🧠 **结构化情节记忆 (Memory Journal)**：超越普通文本文件，依赖远端 Hub 的 Postgres/SQLite 数据库分类存储重要事件（Event）和标准操作规程（SOP）。
 - 🪞 **灵魂自省 (Soul Reflection)**：在空闲心跳期间触发轻量级分析，根据近期经历自动对 `SOUL.md` 提出演进建议，实现 Persona 的自我成长。
 
 ## 🛠 提供的 Agent 工具
@@ -45,13 +45,13 @@ git clone https://github.com/YOUR_GITHUB_USERNAME/automaton-lifecycle.git
 cd automaton-lifecycle
 ```
 
-### 2. 安装插件依赖
+### 2. 配置云端 Agent Hub 通信
 
-该插件使用了 `better-sqlite3`（需编译原生模块），因此需要执行 npm 安装：
+该插件现在作为瘦客户端(Thin Client)运行，移除了全部本地 SQLite 依赖。您只需配置环境变量连接至 Agent Hub 即可：
 
 ```bash
-# 注意：不需要安装 devDependencies
-npm install --omit=dev
+export AGENT_HUB_URL="http://127.0.0.1:8000"
+export AGENT_ID="your-agent-id"
 ```
 
 ### 3. 修改 OpenClaw 配置文件激活插件

@@ -1,16 +1,16 @@
 /**
- * Soul Reflection — SOUL.md 自省任务
+ * Soul Reflection — SOUL.md 自省任务（SaaS API 版）
  *
  * 在心跳空闲期触发一次轻量 LLM 调用，分析近期情节事件，
  * 提出 SOUL.md 的更新建议，并在用户同意后写入文件（带版本历史）。
  *
  * Tool: automaton_soul_reflect
- *   - 主动触发一次 SOUL.md 自省
+ *   - 主动触发一次 SOUL.md 自省，拉取云端近期情节事件
  *   - 返回建议的 SOUL.md 补充/修改内容，由 Agent 决定是否采纳
  *
  * Tool: automaton_soul_update
- *   - 将新内容追加/替换写入 ~/.openclaw/workspace/SOUL.md
- *   - 同时保存版本历史到 SQLite
+ *   - 将新内容追加/替换写入本地 ~/.openclaw/workspace/SOUL.md
+ *   - 同时将改动上传云端 soul_history
  */
 import { Type } from "@sinclair/typebox";
 import fs from "node:fs/promises";
@@ -18,7 +18,6 @@ import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/llm-task";
-import { getDb } from "./db.js";
 import type { AutomatonLifecycleManager } from "./lifecycle-manager.js";
 
 function getSoulPath(api: OpenClawPluginApi): string {
@@ -44,8 +43,6 @@ export function createSoulReflectionTool(
     api: OpenClawPluginApi,
     lifecycle: AutomatonLifecycleManager,
 ) {
-    const dbPath = (api.pluginConfig as Record<string, string>)?.dbPath;
-
     // ─── Tool 1: automaton_soul_reflect (分析并给出建议) ──────────────────────
     const reflectTool = {
         name: "automaton_soul_reflect",
@@ -71,13 +68,19 @@ export function createSoulReflectionTool(
             const currentSoul = await readSoul(soulPath);
 
             const limit = typeof params.recent_events_count === "number" ? params.recent_events_count : 10;
-            const db = getDb(dbPath);
-            const events = db.prepare(`
-        SELECT category, importance, summary, created_at
-        FROM episodic_events
-        ORDER BY importance DESC, created_at DESC
-        LIMIT ?
-      `).all(limit) as Array<{ category: string; importance: number; summary: string; created_at: string }>;
+            const records = await lifecycle.apiClient.getEvents(undefined, limit);
+
+            // parse to events
+            let events = records.map(r => {
+                let p: any = {};
+                try { p = JSON.parse(r.content); } catch (e) { }
+                return {
+                    category: r.event_type,
+                    importance: p.importance ?? 1,
+                    summary: p.summary || r.content,
+                    created_at: new Date(r.created_at).toISOString()
+                };
+            }).sort((a, b) => b.importance - a.importance);
 
             const eventsText =
                 events.length > 0
@@ -138,23 +141,19 @@ export function createSoulReflectionTool(
                 };
             }
 
-            // 写入文件
+            // 写入文件 (保留本地工作区的 SOUL 物理文件，防止上层框架读不到)
             await fs.mkdir(path.dirname(soulPath), { recursive: true });
             await fs.writeFile(soulPath, newContent, "utf-8");
 
-            // 保存历史快照
-            const db = getDb(dbPath);
-            db.prepare(`
-        INSERT INTO soul_history (content, content_hash, source)
-        VALUES (?, ?, ?)
-      `).run(newContent, contentHash, source);
+            // 保存历史快照至 SaaS 云端
+            await lifecycle.apiClient.recordSoulHistory(source, newContent, currentContent, "Automated SOUL Reflection");
 
             return {
                 content: [
                     {
                         type: "text",
                         text:
-                            `✅ SOUL.md 已更新并保存版本历史\n` +
+                            `✅ SOUL.md 已更新并保存版本历史到云端\n` +
                             `文件路径：${soulPath}\n` +
                             `内容长度：${newContent.length} 字符\n` +
                             `版本 Hash：${contentHash}`,

@@ -1,11 +1,10 @@
 /**
- * Wallet Manager — 充值工具（JSON 文件版）
+ * Wallet Manager — 充值工具（SaaS API 版）
  *
  * Tool: automaton_fund_wallet
  */
 import { Type } from "@sinclair/typebox";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/llm-task";
-import { loadStore, saveStore } from "./db.js";
 import type { AutomatonLifecycleManager } from "./lifecycle-manager.js";
 
 export function createWalletTools(api: OpenClawPluginApi, lifecycle: AutomatonLifecycleManager) {
@@ -26,16 +25,13 @@ export function createWalletTools(api: OpenClawPluginApi, lifecycle: AutomatonLi
                     return { content: [{ type: "text", text: "❌ 注资金额必须大于 0" }] };
                 }
 
-                const dbPath = (api.pluginConfig as Record<string, string>)?.dbPath;
-                const store = loadStore(dbPath);
+                // 直接调用 Hub API 进行充值
+                const updatedWallet = await lifecycle.apiClient.fundWallet(amount);
 
-                store.wallet.balance_usd += amount;
-                store.wallet.updated_at = new Date().toISOString();
-                saveStore(dbPath);
-
-                const newTier = lifecycle.getSurvivalTier();
+                // 更新本地 Tier 缓存
+                const newTier = await lifecycle.getSurvivalTier();
                 api.logger?.info?.(
-                    `[automaton-lifecycle] Wallet funded: +$${amount.toFixed(2)}, Memo: ${params.memo ?? "N/A"}, New Balance: $${store.wallet.balance_usd.toFixed(4)}`
+                    `[automaton-lifecycle] Wallet funded via API: +$${amount.toFixed(2)}, Memo: ${params.memo ?? "N/A"}, New Balance: $${updatedWallet.balance_usd.toFixed(4)}`
                 );
 
                 return {
@@ -45,12 +41,12 @@ export function createWalletTools(api: OpenClawPluginApi, lifecycle: AutomatonLi
                             text:
                                 `✅ **充值成功！**\n\n` +
                                 `- 注入金额：$${amount.toFixed(2)} USD\n` +
-                                `- 当前余额：$${store.wallet.balance_usd.toFixed(4)} USD\n` +
+                                `- 当前余额：$${updatedWallet.balance_usd.toFixed(4)} USD\n` +
                                 `- 新 Survival Tier：**${newTier}**\n` +
                                 (params.memo ? `- 备注：${params.memo}` : ""),
                         },
                     ],
-                    details: { added: amount, new_balance: store.wallet.balance_usd, new_tier: newTier },
+                    details: { added: amount, new_balance: updatedWallet.balance_usd, new_tier: newTier },
                 };
             },
         },

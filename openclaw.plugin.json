@@ -1,0 +1,51 @@
+{
+    "id": "automaton-lifecycle",
+    "name": "Automaton Lifecycle",
+    "description": "Brings Automaton-inspired survival pressure, adaptive heartbeat, structured memory journaling, and soul reflection into OpenClaw.",
+    "configSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "dailyBudgetUsd": {
+                "type": "number",
+                "description": "Maximum daily API spend in USD. When exceeded, agent downgrades to a cheaper model. Default: 5.0"
+            },
+            "lowComputeThresholdPct": {
+                "type": "number",
+                "description": "Percentage of daily budget consumed before entering low_compute tier (0-100). Default: 80"
+            },
+            "criticalThresholdPct": {
+                "type": "number",
+                "description": "Percentage of daily budget consumed before entering critical tier (0-100). Default: 95"
+            },
+            "lowComputeModel": {
+                "type": "string",
+                "description": "Model to switch to in low_compute tier, e.g. 'openai/gpt-4o-mini'. Falls back to agent default if not set."
+            },
+            "idleHeartbeatMultiplier": {
+                "type": "number",
+                "description": "Multiplier applied to heartbeat interval after N consecutive idle ticks. Default: 2"
+            },
+            "idleTicksBeforeSlowdown": {
+                "type": "number",
+                "description": "Number of consecutive HEARTBEAT_OK ticks before heartbeat slowdown kicks in. Default: 3"
+            },
+            "soulReflectionModel": {
+                "type": "string",
+                "description": "Cheap model used for SOUL.md reflection during idle heartbeats. Falls back to lowComputeModel or agent default."
+            },
+            "enableMemoryJournal": {
+                "type": "boolean",
+                "description": "Enable the SQLite-backed episodic memory journal. Default: true"
+            },
+            "enableSoulReflection": {
+                "type": "boolean",
+                "description": "Enable periodic SOUL.md self-reflection during idle heartbeats. Default: true"
+            },
+            "dbPath": {
+                "type": "string",
+                "description": "Path to the SQLite DB for spend tracking and memory journal. Default: ~/.openclaw/automaton-lifecycle.db"
+            }
+        }
+    }
+}

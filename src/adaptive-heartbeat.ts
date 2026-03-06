@@ -17,7 +17,7 @@
  */
 import { Type } from "@sinclair/typebox";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/llm-task";
-import { getDb } from "./db.js";
+import { loadStore, saveStore } from "./db.js";
 import type { AutomatonLifecycleManager } from "./lifecycle-manager.js";
 
 const KV_BASE_INTERVAL = "heartbeat_base_interval_min";
@@ -25,21 +25,15 @@ const KV_CURRENT_INTERVAL = "heartbeat_current_interval_min";
 
 /** 读取 KV 状态 */
 function readKv(key: string, dbPath?: string): string | null {
-    const db = getDb(dbPath);
-    const row = db.prepare("SELECT value FROM heartbeat_state WHERE key = ?").get(key) as
-        | { value: string }
-        | undefined;
-    return row?.value ?? null;
+    const store = loadStore(dbPath);
+    return store.heartbeat_state[key] ?? null;
 }
 
 /** 写入 KV 状态 */
 function writeKv(key: string, value: string, dbPath?: string): void {
-    const db = getDb(dbPath);
-    db.prepare(`
-    INSERT INTO heartbeat_state(key, value, updated_at)
-    VALUES(?, ?, datetime('now'))
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-  `).run(key, value);
+    const store = loadStore(dbPath);
+    store.heartbeat_state[key] = value;
+    saveStore(dbPath);
 }
 
 /** 读取基准和当前心跳间隔（分钟） */

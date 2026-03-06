@@ -1,110 +1,110 @@
 /**
- * DB 初始化与工具函数
+ * 数据存储层（JSON 文件版）
  *
- * 创建 SQLite 数据库，供 spend-tracker、memory-journal 等模块共享。
- * 数据库默认位置：~/.openclaw/automaton-lifecycle.db
+ * 使用 Node.js 内置 fs 模块读写 JSON 文件，零外部依赖。
+ * 数据默认存储在：~/.openclaw/automaton-lifecycle/data.json
  */
-import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-let _db: Database.Database | null = null;
+// ---------- 数据结构定义 ----------
 
-export function getDb(dbPath?: string): Database.Database {
-  if (_db) return _db;
-
-  // 解析路径：优先使用传入路径，否则默认 ~/.openclaw/
-  const resolvedPath = dbPath
-    ? dbPath.replace(/^~/, os.homedir())
-    : path.join(os.homedir(), ".openclaw", "automaton-lifecycle.db");
-
-  // 确保父目录存在
-  fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
-
-  _db = new Database(resolvedPath);
-  _db.pragma("journal_mode = WAL");
-  _db.pragma("foreign_keys = ON");
-
-  // 初始化表结构
-  _db.exec(`
-    -- 每日花费记录（按 model 分组）
-    CREATE TABLE IF NOT EXISTS daily_spend (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      date_key    TEXT    NOT NULL,          -- YYYY-MM-DD
-      model       TEXT    NOT NULL,
-      input_tokens  INTEGER NOT NULL DEFAULT 0,
-      output_tokens INTEGER NOT NULL DEFAULT 0,
-      cost_usd    REAL    NOT NULL DEFAULT 0,
-      created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
-      updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
-    );
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_spend_date_model
-      ON daily_spend(date_key, model);
-
-    -- 情节记忆日志
-    CREATE TABLE IF NOT EXISTS episodic_events (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      session_id  TEXT    NOT NULL,
-      importance  INTEGER NOT NULL DEFAULT 3,  -- 1-5，5 最重要
-      category    TEXT    NOT NULL DEFAULT 'general',
-      summary     TEXT    NOT NULL,
-      detail      TEXT,
-      tags        TEXT,                        -- JSON 数组 ["tag1","tag2"]
-      created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
-    );
-    CREATE INDEX IF NOT EXISTS idx_episodic_session
-      ON episodic_events(session_id);
-    CREATE INDEX IF NOT EXISTS idx_episodic_category
-      ON episodic_events(category);
-
-    -- 流程 SOP（标准操作规程）记忆库
-    CREATE TABLE IF NOT EXISTS procedural_sop (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      name        TEXT    NOT NULL UNIQUE,
-      description TEXT    NOT NULL,
-      steps       TEXT    NOT NULL,  -- JSON 数组
-      success_count INTEGER NOT NULL DEFAULT 0,
-      fail_count    INTEGER NOT NULL DEFAULT 0,
-      created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
-      updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
-    );
-
-    -- 自适应心跳状态
-    CREATE TABLE IF NOT EXISTS heartbeat_state (
-      key         TEXT PRIMARY KEY,
-      value       TEXT NOT NULL,
-      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    -- SOUL.md 版本历史
-    CREATE TABLE IF NOT EXISTS soul_history (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      content     TEXT NOT NULL,
-      content_hash TEXT NOT NULL,
-      source      TEXT NOT NULL DEFAULT 'reflection',  -- reflection | manual
-      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    -- Agent 虚拟钱包 (计费系统方案 A)
-    CREATE TABLE IF NOT EXISTS agent_wallets (
-      id            TEXT PRIMARY KEY,              -- Agent ID (保留扩展性，默认使用 'default')
-      balance_usd   REAL NOT NULL DEFAULT 0.0,     -- 当前资金余额
-      lifetime_spent REAL NOT NULL DEFAULT 0.0,    -- 历史总开销
-      updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-  `);
-
-  // 如果 default 钱包不存在，则初始化一笔体验金 (暂定 $10.00)
-  _db.exec(`
-    INSERT OR IGNORE INTO agent_wallets (id, balance_usd, lifetime_spent)
-    VALUES ('default', 10.0, 0.0);
-  `);
-
-  return _db;
+export interface DailySpendRow {
+  model: string;
+  date_key: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
 }
 
-/** 获取今日的 date_key（YYYY-MM-DD，UTC）*/
+export interface EpisodicEvent {
+  id: number;
+  session_id: string;
+  importance: number;
+  category: string;
+  summary: string;
+  detail?: string;
+  tags?: string[];
+  created_at: string;
+}
+
+export interface SopRecord {
+  name: string;
+  description: string;
+  steps: string[];
+  success_count: number;
+  fail_count: number;
+  updated_at: string;
+}
+
+export interface WalletRecord {
+  balance_usd: number;
+  lifetime_spent: number;
+  updated_at: string;
+}
+
+export interface DbStore {
+  daily_spend: DailySpendRow[];
+  episodic_events: EpisodicEvent[];
+  procedural_sop: SopRecord[];
+  heartbeat_state: Record<string, string>;
+  soul_history: Array<{ content: string; content_hash: string; source: string; created_at: string }>;
+  wallet: WalletRecord;
+}
+
+function defaultStore(): DbStore {
+  return {
+    daily_spend: [],
+    episodic_events: [],
+    procedural_sop: [],
+    heartbeat_state: {},
+    soul_history: [],
+    // 初始化时给 $10 体验金
+    wallet: { balance_usd: 10.0, lifetime_spent: 0.0, updated_at: new Date().toISOString() },
+  };
+}
+
+// ---------- 单例读写 ----------
+
+let _store: DbStore | null = null;
+let _storePath: string | null = null;
+
+export function getStorePath(dbPath?: string): string {
+  if (dbPath) return dbPath.replace(/^~/, os.homedir());
+  return path.join(os.homedir(), ".openclaw", "automaton-lifecycle", "data.json");
+}
+
+export function loadStore(dbPath?: string): DbStore {
+  const p = getStorePath(dbPath);
+  if (_store && _storePath === p) return _store;
+
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+
+  if (fs.existsSync(p)) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(p, "utf-8"));
+      // 向后兼容：如果没有 wallet 字段则补充
+      if (!raw.wallet) raw.wallet = defaultStore().wallet;
+      _store = raw as DbStore;
+    } catch {
+      _store = defaultStore();
+    }
+  } else {
+    _store = defaultStore();
+  }
+
+  _storePath = p;
+  return _store;
+}
+
+export function saveStore(dbPath?: string): void {
+  const p = getStorePath(dbPath);
+  if (!_store) return;
+  fs.writeFileSync(p, JSON.stringify(_store, null, 2), "utf-8");
+}
+
+/** 获取今日的 date_key（YYYY-MM-DD）*/
 export function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
 }

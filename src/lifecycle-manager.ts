@@ -140,5 +140,13 @@ export class AutomatonLifecycleManager {
             await this.apiClient.updateAutomatonState({ heartbeat_interval_ms: intervalMs });
         } catch (e) { }
     }
+
+    async pingHeartbeat(): Promise<void> {
+        try {
+            await this.apiClient.pingHeartbeat();
+        } catch (e) {
+            this.api.logger?.error?.("pingHeartbeat error: " + e);
+        }
+    }
 }
 

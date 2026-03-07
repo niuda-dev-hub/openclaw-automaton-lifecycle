@@ -85,6 +85,9 @@ export function createAdaptiveHeartbeatTools(
                 }
             }
 
+            // 发送真实的心跳打卡给 Agent Hub 后端
+            await lifecycle.pingHeartbeat();
+
             return {
                 content: [{ type: "text", text: message }],
                 details: { isIdle, idleTickCount: lifecycle.getIdleTickCount(), newIntervalMin: newIntervalMs / 60000 },

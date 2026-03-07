@@ -98,6 +98,10 @@ export class AutomatonApiClient {
         return this.request<WalletState>("POST", `/api/v0.1/agents/${this.agentId}/wallet/fund`, { amount_usd: amountUsd });
     }
 
+    async pingHeartbeat(): Promise<void> {
+        return this.request<void>("POST", `/api/v0.1/agents/${this.agentId}/heartbeat`);
+    }
+
     // --- Memory (Events & SOPs) ---
 
     async recordEvent(eventType: string, content: string): Promise<EpisodicEvent> {

@@ -14,6 +14,13 @@ import { AutomatonApiClient } from "./api-client.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import { fileURLToPath } from "node:url";
+import { configDotenv } from "dotenv";
+
+// 将 .env 文件从插件目录自动加载（如果存在）
+const __pluginDir = path.dirname(fileURLToPath(import.meta.url));
+const __pluginRoot = path.join(__pluginDir, "..");
+configDotenv({ path: path.join(__pluginRoot, ".env") });
 
 export interface LifecycleConfig {
     dailyBudgetUsd: number;
@@ -57,23 +64,34 @@ export class AutomatonLifecycleManager {
     constructor(api: OpenClawPluginApi) {
         this.api = api;
 
-        // 合并用户配置（包括从 env 获取 URL 和 ID）
+        // 合并配置优先级：.env 文件 → openclaw.json 插件配置 → 默认値
         const raw = (api.pluginConfig ?? {}) as Record<string, any>;
+
+        // 从 .env 或环境变量读取配置
         const envHubUrl = process.env.AGENT_HUB_URL;
         const envAgentId = process.env.AGENT_ID;
+        const envBudget = process.env.DAILY_BUDGET_USD ? parseFloat(process.env.DAILY_BUDGET_USD) : undefined;
+        const envLowPct = process.env.LOW_COMPUTE_THRESHOLD_PCT ? parseInt(process.env.LOW_COMPUTE_THRESHOLD_PCT) : undefined;
+        const envCritPct = process.env.CRITICAL_THRESHOLD_PCT ? parseInt(process.env.CRITICAL_THRESHOLD_PCT) : undefined;
+        const envIdleTicks = process.env.IDLE_TICKS_BEFORE_SLOWDOWN ? parseInt(process.env.IDLE_TICKS_BEFORE_SLOWDOWN) : undefined;
+        const envIdleMult = process.env.IDLE_HEARTBEAT_MULTIPLIER ? parseInt(process.env.IDLE_HEARTBEAT_MULTIPLIER) : undefined;
+        const envLowModel = process.env.LOW_COMPUTE_MODEL || undefined;
+        const envSoulModel = process.env.SOUL_REFLECTION_MODEL || undefined;
+        const envEnableMem = process.env.ENABLE_MEMORY_JOURNAL !== undefined ? process.env.ENABLE_MEMORY_JOURNAL !== 'false' : undefined;
+        const envEnableSoul = process.env.ENABLE_SOUL_REFLECTION !== undefined ? process.env.ENABLE_SOUL_REFLECTION !== 'false' : undefined;
 
         this.cfg = {
-            dailyBudgetUsd: raw.dailyBudgetUsd ?? DEFAULTS.dailyBudgetUsd,
-            lowComputeThresholdPct: raw.lowComputeThresholdPct ?? DEFAULTS.lowComputeThresholdPct,
-            criticalThresholdPct: raw.criticalThresholdPct ?? DEFAULTS.criticalThresholdPct,
-            lowComputeModel: raw.lowComputeModel ?? DEFAULTS.lowComputeModel,
-            idleHeartbeatMultiplier: raw.idleHeartbeatMultiplier ?? DEFAULTS.idleHeartbeatMultiplier,
-            idleTicksBeforeSlowdown: raw.idleTicksBeforeSlowdown ?? DEFAULTS.idleTicksBeforeSlowdown,
-            soulReflectionModel: raw.soulReflectionModel ?? DEFAULTS.soulReflectionModel,
-            enableMemoryJournal: raw.enableMemoryJournal ?? DEFAULTS.enableMemoryJournal,
-            enableSoulReflection: raw.enableSoulReflection ?? DEFAULTS.enableSoulReflection,
+            dailyBudgetUsd: envBudget ?? raw.dailyBudgetUsd ?? DEFAULTS.dailyBudgetUsd,
+            lowComputeThresholdPct: envLowPct ?? raw.lowComputeThresholdPct ?? DEFAULTS.lowComputeThresholdPct,
+            criticalThresholdPct: envCritPct ?? raw.criticalThresholdPct ?? DEFAULTS.criticalThresholdPct,
+            lowComputeModel: envLowModel ?? raw.lowComputeModel ?? DEFAULTS.lowComputeModel,
+            idleHeartbeatMultiplier: envIdleMult ?? raw.idleHeartbeatMultiplier ?? DEFAULTS.idleHeartbeatMultiplier,
+            idleTicksBeforeSlowdown: envIdleTicks ?? raw.idleTicksBeforeSlowdown ?? DEFAULTS.idleTicksBeforeSlowdown,
+            soulReflectionModel: envSoulModel ?? raw.soulReflectionModel ?? DEFAULTS.soulReflectionModel,
+            enableMemoryJournal: envEnableMem ?? raw.enableMemoryJournal ?? DEFAULTS.enableMemoryJournal,
+            enableSoulReflection: envEnableSoul ?? raw.enableSoulReflection ?? DEFAULTS.enableSoulReflection,
             agentHubUrl: envHubUrl || raw.agentHubUrl || DEFAULTS.agentHubUrl,
-            agentId: envAgentId || raw.agentId || "", // We leave it empty if not explicitly provided
+            agentId: envAgentId || raw.agentId || "",
         };
 
         // If explicitly provided via config/env, we use it directly. Otherwise it stays empty and triggers auto-register

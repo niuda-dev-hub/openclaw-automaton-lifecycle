@@ -27,107 +27,123 @@
 | `automaton_soul_reflect` | 获取 SOUL 文件的自省上下文，交由 LLM 生成更新建议。 |
 | `automaton_soul_update` | 安全地写入新版 `SOUL.md`，并在远端记录版本历史。 |
 
-## 🚀 在 OpenClaw 中安装此插件
+## 🚀 快速安装（推荐）
 
-由于这是一个针对 OpenClaw 的本地插件，请遵循以下完整的安装与配置步骤：
+我们提供了自动化安装脚本，**一条命令**完成克隆、依赖安装和配置模板创建：
 
-### 1. 克隆代码到全局扩展目录
-
-进入您的 OpenClaw 工作区配置目录（通常默认在 `~/.openclaw/workspace/.openclaw/`），并将本仓库克隆到 `extensions` 文件夹下：
-
+**Linux / macOS:**
 ```bash
-# 进入 OpenClaw 的 workspace extensions 目录（Windows 环境为例，Linux/macOS 请对应替换路径）
-cd ~/.openclaw/workspace/.openclaw/extensions/
-
-# 克隆仓库
-git clone https://github.com/YOUR_GITHUB_USERNAME/automaton-lifecycle.git
-
-cd automaton-lifecycle
+# 首先克隆本仓库，然后运行安装脚本
+git clone https://github.com/niudakok-kok/openclaw-automaton-lifecycle.git
+bash openclaw-automaton-lifecycle/scripts/install.sh
 ```
 
-### 2. 配置云端 Agent Hub 通信
-
-### 2. 安装所需依赖
-
-进入插件目录后，必须先安装运行依赖，否则 OpenClaw 加载时将报 **`Cannot find module`** 错误：
-
-```bash
-npm install
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/niudakok-kok/openclaw-automaton-lifecycle.git
+.\openclaw-automaton-lifecycle\scripts\install.ps1
 ```
 
-### 3. 配置云端 Agent Hub 通信
+脚本会自动：
+1. 将插件克隆/更新到正确的 OpenClaw extensions 目录
+2. 执行 `npm install` 安装依赖
+3. 基于 `.env.example` 创建 `.env` 配置文件（如不存在）
 
-此插件已**完全重构为瘦客户端 (Thin Client) 模式**，剥离了繁重的本地 SQLite 等存储依赖！所有的记忆索引、SOP 获取、心跳和钱包扣费功能已全部接入云端 Agent Hub Backend API，请直接配置您的 Hub 终端地址。
+---
 
-设置系统环境变量：
+## ⚙️ 配置插件（.env 文件）
+
+所有插件配置都集中在插件目录下的 **`.env` 文件**中，**无需修改 `openclaw.json`**。
+
+安装完成后，编辑 `.env` 文件：
 ```bash
-export AGENT_HUB_URL="http://127.0.0.1:8000"  # 你的云端 Agent Hub API 地址，或者是本地运行的 Hub 地址
-export AGENT_ID="your-agent-uuid"              # 分配给该 Agent 在平台上的独有标识
+# 路径示例（Windows 下请替换为对应路径）
+nano ~/.openclaw/workspace/.openclaw/extensions/automaton-lifecycle/.env
 ```
 
-或者在 `openclaw.json` 中通过 UI 配置（推荐，无需设置环境变量）。
+**核心配置项：**
 
-### 4. 修改 OpenClaw 配置文件激活插件
+| 变量名 | 说明 | 默认值 |
+|---|---|---|
+| `AGENT_HUB_URL` | Agent Hub 后端地址 | `http://127.0.0.1:8000` |
+| `AGENT_ID` | Agent UUID（留空则自动注册） | _(空)_ |
+| `DAILY_BUDGET_USD` | 每日预算上限（美元） | `5.0` |
+| `LOW_COMPUTE_THRESHOLD_PCT` | 进入低算力模式阈值（%） | `80` |
+| `CRITICAL_THRESHOLD_PCT` | 进入告警模式阈值（%） | `95` |
+| `IDLE_TICKS_BEFORE_SLOWDOWN` | 连续空闲 N 次后拉长心跳 | `3` |
+| `IDLE_HEARTBEAT_MULTIPLIER` | 空闲时心跳间隔放大倍数 | `2` |
+| `ENABLE_MEMORY_JOURNAL` | 远端记忆日志（true/false） | `true` |
+| `ENABLE_SOUL_REFLECTION` | Soul 自省功能（true/false） | `true` |
 
-找到您的 OpenClaw 主配置文件（一般在 `~/.openclaw/openclaw.json`），在 `plugins` 字段中添加白名单许可并追加插件配置。
+完整配置示例见 [`.env.example`](.env.example)。
+
+> **关于 `AGENT_ID`**：首次留空即可，插件在被调用时自动向 Hub 注册并获取 UUID。若遭遇网络代理拦截，可先在 Agent Hub UI 手动创建 Agent，将 UUID 填入此处。
+
+---
+
+## 🔧 在 openclaw.json 中激活插件
+
+只需将插件加入白名单即可，**无需填写任何 `config` 字段**（配置已由 `.env` 管理）：
 
 ```jsonc
 {
-  // ... 其他基础配置
   "plugins": {
-    "allow": [
-      // ... 现有的其他受信任插件 (例如 progress-monitor)
-      "automaton-lifecycle"  // 添加本插件的 ID 到白名单防止未追踪警告
-    ],
+    "allow": ["automaton-lifecycle"],
     "entries": {
-      // ...
       "automaton-lifecycle": {
-        "enabled": true,
-        "config": {
-          "agentHubUrl": "http://127.0.0.1:8000",   // Agent Hub API 地址（覆盖环境变量）
-          "agentId": "your-agent-uuid",               // Agent 的唯一 ID（首次可留空，将自动注册）
-          "dailyBudgetUsd": 5.0,              // 每日预算上限 (美元)
-          "lowComputeThresholdPct": 80,       // 花费达到 80% 时进入低算力模式
-          "criticalThresholdPct": 95,         // 花费达到 95% 时警报暂停
-          "lowComputeModel": "openai/gpt-4o-mini", // 低算力模式下触发降级使用的廉价模型别名/路由
-          "idleTicksBeforeSlowdown": 3,       // 连续 N 次空闲心跳后触发间隔放缓
-          "idleHeartbeatMultiplier": 2,       // 放缓后的心跳间隔倍数
-          "enableMemoryJournal": true,        // 是否开启远端记忆日志记录
-          "enableSoulReflection": true        // 是否开启 Soul.md 自动反思功能
-        }
+        "enabled": true
       }
     }
   }
 }
 ```
 
-> **提示**：`agentId` 若留空，插件会在首次被调用时自动向 `agentHubUrl` 发起注册并获取 UUID。若注册失败（如网络代理问题），可手动在 Agent Hub UI 中进行 Agent 注册，获取 UUID 后填入此配置项。
+---
 
+## 🔄 重启 Gateway
 
-### 4. 重启 OpenClaw Gateway
-
-配置完成后，请重启 OpenClaw 服务，以便让配置与插件被正确加载：
+配置完成后，重启 OpenClaw 服务：
 
 ```bash
+# Linux / macOS
 openclaw gateway restart
+
+# Windows
+openclaw gateway stop; openclaw gateway start
 ```
 
-如果启动正常，使用 `openclaw status` 查看，您应该能在输出的 `[plugins]` 区域看到 `automaton-lifecycle` 被加载。
+---
 
-## 💡 最佳使用建议 (HEARTBEAT.md)
+## 🗑️ 完整移除插件
 
-为了让 Agent 学会主动调用这些能力，强烈建议您在主 workspace 根目录下的 `HEARTBEAT.md`（心跳操作规范指引）中，加入以下内容：
+**Linux / macOS:**
+```bash
+bash ~/.openclaw/workspace/.openclaw/extensions/automaton-lifecycle/scripts/uninstall.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+& "$env:OPENCLAW_HOME\workspace\.openclaw\extensions\automaton-lifecycle\scripts\uninstall.ps1"
+```
+
+移除脚本会进行二次确认，然后删除整个插件目录（包含你的 `.env` 和所有数据）。
+
+---
+
+## 💡 HEARTBEAT.md 最佳实践
+
+为了让 Agent 学会主动调用这些能力，强烈建议在 workspace 根目录的 `HEARTBEAT.md` 中加入以下约定：
 
 ```markdown
 # 周期性心跳约定
 
-在每次执行常规心跳检查时，请遵守以下流程：
+每次执行常规心跳检查时，请遵守以下流程：
 
-1. **成本自查**：第一时间调用 `automaton_check_spend` 查看层级。
-   - 若系统处于 `low_compute` 或更危险的层级，请尽可能延后非紧急任务，并只用简洁文案报告。
-2. **待办拉取**：调用 `automaton_recall_events` (category="pending" 等标签)，检查昨日或历史遗留进程。
+1. **成本自查**：调用 `automaton_check_spend` 查看层级。
+   - 若处于 `low_compute` 或更危险层级，延后非紧急任务。
+2. **待办拉取**：调用 `automaton_recall_events` (category="pending") 检查遗留事项。
 3. **工作进度反馈**：
-   - 如果执行了实际的业务动作或进行了有效沟通，请回复并在此后调用 `automaton_heartbeat_report` (is_idle=false) 重置状态。
-   - 如果经过检查没有任何需要我操作的事项，请回复 `HEARTBEAT_OK`，并在最后调用 `automaton_heartbeat_report` (is_idle=true) 通知主引擎进入节能模式。
-4. **经验沉淀**：如果刚刚解决了一个复杂 bug 或跑通了新流程，立刻调用 `automaton_save_sop` 归档。
+   - 执行了实际动作 → 调用 `automaton_heartbeat_report` (is_idle=false)
+   - 无任何待处理事项 → 回复 `HEARTBEAT_OK` 并调用 `automaton_heartbeat_report` (is_idle=true)
+4. **经验沉淀**：解决复杂问题后立刻调用 `automaton_save_sop` 归档。
 ```

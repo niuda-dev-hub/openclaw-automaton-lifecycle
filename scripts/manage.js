@@ -49,12 +49,16 @@ function getOpenClawHome() {
     const fromEnv = process.env.OPENCLAW_HOME;
     if (fromEnv) return fromEnv;
     return IS_WINDOWS
-        ? path.join(os.homedir(), '.openclaw')
+        ? path.join('D:\\', 'OpenClaw', '.openclaw')   // Windows 默认 OpenClaw 安装路径
         : path.join(os.homedir(), '.openclaw');
 }
 
 function getPaths() {
     const home = getOpenClawHome();
+    // OpenClaw 的插件目录结构：{home}/workspace/.openclaw/extensions/
+    // - home:           D:\OpenClaw\.openclaw
+    // - workspace 配置: D:\OpenClaw\.openclaw\workspace\.openclaw\
+    // - extensions:     D:\OpenClaw\.openclaw\workspace\.openclaw\extensions\
     const extensionsDir = path.join(home, 'workspace', '.openclaw', 'extensions');
     const pluginDir = path.join(extensionsDir, PLUGIN_NAME);
     const openclawJson = path.join(home, 'openclaw.json');

@@ -27,27 +27,41 @@
 | `automaton_soul_reflect` | 获取 SOUL 文件的自省上下文，交由 LLM 生成更新建议。 |
 | `automaton_soul_update` | 安全地写入新版 `SOUL.md`，并在远端记录版本历史。 |
 
-## 🚀 快速安装（推荐）
+## 🚀 快速安装 / 移除（推荐）
 
-我们提供了自动化安装脚本，**一条命令**完成克隆、依赖安装和配置模板创建：
+只需一条命令，全平台（Windows / macOS / Linux）通用：
 
-**Linux / macOS:**
 ```bash
-# 首先克隆本仓库，然后运行安装脚本
+# 克隆代码后运行管理脚本（交互式菜单，自动检测系统）
 git clone https://github.com/niudakok-kok/openclaw-automaton-lifecycle.git
-bash openclaw-automaton-lifecycle/scripts/install.sh
+node openclaw-automaton-lifecycle/scripts/manage.js
 ```
 
-**Windows (PowerShell):**
-```powershell
-git clone https://github.com/niudakok-kok/openclaw-automaton-lifecycle.git
-.\openclaw-automaton-lifecycle\scripts\install.ps1
+脚本启动后会呈现菜单，由你选择**安装**或**移除**：
+
+```
+╔══════════════════════════════════════╗
+║  automaton-lifecycle 插件管理工具    ║
+╠══════════════════════════════════════╣
+║  1. 安装插件                         ║
+║  2. 移除插件                         ║
+╚══════════════════════════════════════╝
+
+请输入选项 [1/2]：
 ```
 
-脚本会自动：
-1. 将插件克隆/更新到正确的 OpenClaw extensions 目录
-2. 执行 `npm install` 安装依赖
-3. 基于 `.env.example` 创建 `.env` 配置文件（如不存在）
+**安装** 时脚本自动完成：
+1. 克隆 / 更新代码到正确的 OpenClaw extensions 目录
+2. `npm install` 安装依赖
+3. 基于 `.env.example` 创建 `.env` 配置文件
+4. 自动注册插件到 `openclaw.json`（无需手动编辑）
+
+**移除** 时脚本自动完成：
+1. 从 `openclaw.json` 注销插件
+2. 二次确认后删除整个插件目录
+
+> 你也可以通过参数跳过菜单直接执行：
+> `node scripts/manage.js install` 或 `node scripts/manage.js uninstall`
 
 ---
 

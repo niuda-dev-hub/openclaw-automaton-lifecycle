@@ -12,6 +12,9 @@
     "devDependencies": {
         "@types/node": "^20.0.0"
     },
+    "scripts": {
+        "manage": "node scripts/manage.js"
+    },
     "openclaw": {
         "extensions": [
             "./index.ts"

@@ -4,3 +4,5 @@ dist/
 *.db-journal
 *.log
 .DS_Store
+.env
+gh_token.txt

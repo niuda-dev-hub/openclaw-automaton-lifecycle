@@ -19,7 +19,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = path.join(__dirname, '..');
 const PLUGIN_NAME = 'automaton-lifecycle';
-const REPO_REMOTE = 'https://github.com/niudakok-kok/automaton-lifecycle-openclaw.git';
+const REPO_REMOTE = 'https://github.com/niudakok-kok/openclaw-automaton-lifecycle.git';
 const IS_WINDOWS = process.platform === 'win32';
 
 // ─── 工具函数 ─────────────────────────────────────────────────

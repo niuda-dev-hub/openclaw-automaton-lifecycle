@@ -34,8 +34,8 @@
 ```bash
 # 在任意临时目录运行（脚本会自动把插件安装到 ~/.openclaw/extensions/）
 # 例如：cd ~ 或 cd /tmp
-git clone https://github.com/niudakok-kok/automaton-lifecycle-openclaw.git
-node automaton-lifecycle-openclaw/scripts/manage.js
+git clone https://github.com/niudakok-kok/openclaw-automaton-lifecycle.git
+node openclaw-automaton-lifecycle/scripts/manage.js
 ```
 
 脚本启动后会呈现菜单，由你选择**安装**或**移除**：

@@ -25,10 +25,11 @@ const IS_WINDOWS = process.platform === 'win32';
 // ─── 工具函数 ─────────────────────────────────────────────────
 
 function log(msg) { console.log(msg); }
-function ok(msg) { console.log(`✅ ${msg}`); }
-function warn(msg) { console.log(`⚠️  ${msg}`); }
-function info(msg) { console.log(`ℹ️  ${msg}`); }
-function step(msg) { console.log(`▶  ${msg}`); }
+function ok(msg) { console.log(`\x1b[32m✅ ${msg}\x1b[0m`); }
+function warn(msg) { console.log(`\x1b[33m⚠️  ${msg}\x1b[0m`); }
+function err(msg) { console.log(`\x1b[31m❌ ${msg}\x1b[0m`); }
+function info(msg) { console.log(`\x1b[36mℹ️  ${msg}\x1b[0m`); }
+function step(msg) { console.log(`\x1b[34m▶  ${msg}\x1b[0m`); }
 
 function run(cmd, cwd = process.cwd()) {
     try {
@@ -43,30 +44,63 @@ function prompt(question) {
     return new Promise(resolve => rl.question(question, ans => { rl.close(); resolve(ans.trim()); }));
 }
 
-// ─── 路径检测 ─────────────────────────────────────────────────
+// ─── 路径解析 ─────────────────────────────────────────────────
 
-function getOpenClawHome() {
-    const fromEnv = process.env.OPENCLAW_HOME;
-    if (fromEnv) return fromEnv;
-    // OpenClaw 默认安装到用户 home 目录下的 .openclaw 文件夹
-    return path.join(os.homedir(), '.openclaw');
-}
+async function resolvePaths() {
+    let home = process.env.OPENCLAW_HOME;
 
-function getPaths() {
-    const home = getOpenClawHome();
-    // 官方标准路径：{OPENCLAW_HOME}/extensions/<plugin-id>
-    // Linux/macOS: ~/.openclaw/extensions/
-    // Windows:     C:\Users\<name>\.openclaw\extensions\
+    // 默认候选路径
+    const candidates = [
+        home,
+        path.join(os.homedir(), '.openclaw'),
+        path.join('D:\\', 'OpenClaw', '.openclaw'),
+        path.join('C:\\', 'OpenClaw', '.openclaw'),
+    ].filter(Boolean);
+
+    // 自动探测
+    let found = false;
+    for (const cand of candidates) {
+        if (fs.existsSync(path.join(cand, 'openclaw.json'))) {
+            home = cand;
+            found = true;
+            break;
+        }
+    }
+
+    // 交互式询问
+    if (!found) {
+        warn('未能在标准位置找到 OpenClaw (openclaw.json)。');
+        while (true) {
+            const input = await prompt('请输入 OpenClaw 安装路径 (包含 openclaw.json 的目录): ');
+            if (!input) {
+                err('路径不能为空，请重新输入或按 Ctrl+C 退出。');
+                continue;
+            }
+            const fullPath = path.resolve(input.replace(/^~/, os.homedir()));
+            if (fs.existsSync(path.join(fullPath, 'openclaw.json'))) {
+                home = fullPath;
+                break;
+            } else {
+                err(`路径无效: 在 ${fullPath} 下未找到 openclaw.json`);
+            }
+        }
+    }
+
+    // 导出所有相关路径
     const extensionsDir = path.join(home, 'extensions');
     const pluginDir = path.join(extensionsDir, PLUGIN_NAME);
     const openclawJson = path.join(home, 'openclaw.json');
+
+    info(`检测到 OpenClaw Home: ${home}`);
+    info(`插件目标目录: ${pluginDir}`);
+
     return { home, extensionsDir, pluginDir, openclawJson };
 }
 
 // ─── 安装逻辑 ─────────────────────────────────────────────────
 
 async function install() {
-    const { extensionsDir, pluginDir, openclawJson } = getPaths();
+    const { extensionsDir, pluginDir, openclawJson } = await resolvePaths();
 
     log('\n========================================');
     log(` OpenClaw 插件安装：${PLUGIN_NAME}`);
@@ -95,9 +129,11 @@ async function install() {
     if (!fs.existsSync(envFile)) {
         step('创建默认配置文件 .env …');
         fs.copyFileSync(envExample, envFile);
-        warn(`请编辑 ${envFile}`);
-        warn('  - AGENT_HUB_URL：Agent Hub 地址（默认 http://127.0.0.1:8000）');
-        warn('  - AGENT_ID：留空则首次调用时自动注册');
+        warn(`配置文件已创建：${envFile}`);
+        info('  请根据需要修改以下内容：');
+        info('  - AGENT_HUB_URL: 你的 Agent Hub 地址');
+        info('  - AGENT_ID: 如果你有现有的 ID 可以在此填入，否则留空自动注册');
+        info('  详情参考: https://github.com/niudakok-kok/openclaw-automaton-lifecycle#%EF%B8%8F-%E9%85%8D%E7%BD%AE%E8%AF%B4%E6%98%8E');
     } else {
         info('.env 文件已存在，跳过创建');
     }
@@ -122,7 +158,7 @@ async function install() {
 // ─── 卸载逻辑 ─────────────────────────────────────────────────
 
 async function uninstall() {
-    const { pluginDir, openclawJson } = getPaths();
+    const { pluginDir, openclawJson } = await resolvePaths();
 
     log('\n========================================');
     log(` OpenClaw 插件移除：${PLUGIN_NAME}`);

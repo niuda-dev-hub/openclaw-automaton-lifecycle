@@ -81,22 +81,7 @@ nano ~/.openclaw/workspace/.openclaw/extensions/automaton-lifecycle/.env
 
 ---
 
-## 🔧 在 openclaw.json 中激活插件
-
-只需将插件加入白名单即可，**无需填写任何 `config` 字段**（配置已由 `.env` 管理）：
-
-```jsonc
-{
-  "plugins": {
-    "allow": ["automaton-lifecycle"],
-    "entries": {
-      "automaton-lifecycle": {
-        "enabled": true
-      }
-    }
-  }
-}
-```
+> **ℹ️ 无需手动修改 `openclaw.json`**：安装脚本会自动调用 `scripts/patch-openclaw-config.js` 将插件注册到白名单中，卸载脚本会同步清理。
 
 ---
 

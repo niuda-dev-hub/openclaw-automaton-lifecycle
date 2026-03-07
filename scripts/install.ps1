@@ -7,10 +7,11 @@ $ErrorActionPreference = "Stop"
 $PLUGIN_NAME = "automaton-lifecycle"
 $REPO_REMOTE = "https://github.com/niudakok-kok/openclaw-automaton-lifecycle.git"
 
-# 自动推断 OpenClaw 的 extensions 目录
+# 自动推断 OpenClaw 相关目录
 $OPENCLAW_HOME = if ($env:OPENCLAW_HOME) { $env:OPENCLAW_HOME } else { "$HOME\.openclaw" }
 $EXTENSIONS_DIR = Join-Path $OPENCLAW_HOME "workspace\.openclaw\extensions"
 $PLUGIN_DIR = Join-Path $EXTENSIONS_DIR $PLUGIN_NAME
+$OPENCLAW_JSON = Join-Path $OPENCLAW_HOME "openclaw.json"
 
 Write-Host "========================================"
 Write-Host " OpenClaw 插件安装：$PLUGIN_NAME"
@@ -23,7 +24,8 @@ New-Item -ItemType Directory -Force -Path $EXTENSIONS_DIR | Out-Null
 if (Test-Path (Join-Path $PLUGIN_DIR ".git")) {
     Write-Host "▶ 已存在插件目录，正在拉取最新代码…"
     git -C $PLUGIN_DIR pull --ff-only
-} else {
+}
+else {
     Write-Host "▶ 克隆插件代码到 $PLUGIN_DIR …"
     git clone $REPO_REMOTE $PLUGIN_DIR
 }
@@ -40,17 +42,25 @@ if (-not (Test-Path $EnvFile)) {
     Write-Host "▶ 创建默认配置文件 .env …"
     Copy-Item ".env.example" ".env"
     Write-Host ""
-    Write-Host "⚠️  请编辑 $EnvFile 填入你的参数："
-    Write-Host "    - AGENT_HUB_URL：你的 Agent Hub 地址"
-    Write-Host "    - AGENT_ID：你的 Agent UUID（可稍后自动注册）"
-} else {
+    Write-Host "⚠️  请编辑 $EnvFile 填入你的参数（AGENT_HUB_URL、AGENT_ID）"
+}
+else {
     Write-Host "▶ .env 文件已存在，跳过创建"
+}
+
+# 5. 自动注册插件到 openclaw.json
+if (Test-Path $OPENCLAW_JSON) {
+    Write-Host "▶ 自动将插件注册到 $OPENCLAW_JSON …"
+    node "$PLUGIN_DIR\scripts\patch-openclaw-config.js" $OPENCLAW_JSON
+}
+else {
+    Write-Host "⚠️  未找到 openclaw.json（路径：$OPENCLAW_JSON），跳过自动注册"
+    Write-Host "   请手动在 openclaw.json 中添加："
+    Write-Host '   "plugins": { "allow": ["automaton-lifecycle"], "entries": { "automaton-lifecycle": { "enabled": true } } }'
 }
 
 Write-Host ""
 Write-Host "✅ 安装完成！"
 Write-Host ""
-Write-Host "后续步骤："
-Write-Host "  1. 确认 .env 中的 AGENT_HUB_URL 和 AGENT_ID 已正确填写"
-Write-Host "  2. 重启 OpenClaw Gateway：openclaw gateway stop; openclaw gateway start"
-Write-Host "  3. 验证加载：openclaw status（应看到 $PLUGIN_NAME 已加载）"
+Write-Host "最后一步：重启 OpenClaw Gateway"
+Write-Host "   openclaw gateway stop; openclaw gateway start"

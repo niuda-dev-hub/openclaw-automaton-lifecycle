@@ -154,6 +154,9 @@ export class AutomatonLifecycleManager {
             await fs.mkdir(path.dirname(identityFile), { recursive: true });
             await fs.writeFile(identityFile, res.id, "utf-8");
             this.api.logger?.info?.(`[automaton-lifecycle] Successfully registered new identity: ${res.id}`);
+
+            // 立即发送第一次心跳，确保 Hub 端状态为在线
+            await this.pingHeartbeat();
         } catch (e) {
             this.api.logger?.error?.(`[automaton-lifecycle] Auto-registration failed! Fallback to default. Error: ${e}`);
             // 最后兜底

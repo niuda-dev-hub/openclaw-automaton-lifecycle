@@ -95,24 +95,37 @@ async function resolvePaths() {
     const pluginDir = path.join(extensionsDir, PLUGIN_NAME);
     const openclawJson = path.join(home, 'openclaw.json');
 
-    log('\n─── 目录信息 ────────────────────────────');
-    info(`  OpenClaw Home:  ${home}`);
-    info(`  配置文件:        ${openclawJson}`);
-    info(`  插件安装到:      ${pluginDir}`);
-    log('────────────────────────────────────────\n');
-
     return { home, extensionsDir, pluginDir, openclawJson };
+}
+
+function printPathInfo(paths) {
+    log('\n─── 路径信息确认 ────────────────────────');
+    info(`  OpenClaw 主目录:  ${paths.home}`);
+    info(`  配置文件路径:      ${paths.openclawJson}`);
+    info(`  插件安装目标:      ${paths.pluginDir}`);
+    log('────────────────────────────────────────\n');
 }
 
 // ─── 安装逻辑 ─────────────────────────────────────────────────
 
 async function install() {
-    const { extensionsDir, pluginDir, openclawJson } = await resolvePaths();
-
     log('\n========================================');
     log(` OpenClaw 插件安装：${PLUGIN_NAME}`);
     log(`  系统: ${IS_WINDOWS ? 'Windows' : os.type()}`);
     log('========================================\n');
+
+    // 1. 检测安装位置
+    step('正在检测 OpenClaw 安装位置…');
+    const paths = await resolvePaths();
+    const { extensionsDir, pluginDir, openclawJson } = paths;
+
+    // 2. 确认安装目录
+    printPathInfo(paths);
+    const confirm = await prompt('确认以上路径并开始安装？(Y/n): ');
+    if (confirm.toLowerCase() === 'n') {
+        info('用户取消安装。');
+        return;
+    }
 
     // 1. 确定代码来源
     const isRunningInTarget = path.resolve(PLUGIN_ROOT) === path.resolve(pluginDir);
@@ -182,11 +195,16 @@ async function install() {
 // ─── 卸载逻辑 ─────────────────────────────────────────────────
 
 async function uninstall() {
-    const { pluginDir, openclawJson } = await resolvePaths();
-
     log('\n========================================');
     log(` OpenClaw 插件移除：${PLUGIN_NAME}`);
     log('========================================\n');
+
+    // 1. 检测位置
+    step('正在检测 OpenClaw 位置…');
+    const paths = await resolvePaths();
+    const { pluginDir, openclawJson } = paths;
+
+    printPathInfo(paths);
 
     if (!fs.existsSync(pluginDir)) {
         warn(`未找到插件目录：${pluginDir}`);

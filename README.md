@@ -6,10 +6,10 @@
 
 ## ✨ 核心特性
 
-- 💰 **成本追踪与生存层级 (Survival Tier)**：自动记录 LLM API 支出，并根据每日预算剩余情况动态调整 Agent 的资源策略。云端集中式钱包，安全防篡改。
-- 🫀 **自适应心跳 (Adaptive Heartbeat)**：在没有实质任务需要处理时，自动放缓心跳频率，避免无效的 API 轮询带来的高额开销。
-- 🧠 **结构化情节记忆 (Memory Journal)**：超越普通文本文件，依赖远端 Hub 的数据库安全分类存储重要事件（Event）和标准操作规程（SOP）。
-- 🪞 **灵魂自省 (Soul Reflection)**：在空闲心跳期间触发轻量级分析，根据近期经历自动对 `SOUL.md` 提出演进建议，实现 Persona 的自我成长。
+- 💰 **云端钱包与生存层级 (Wallet & Survival Tier)**：与 Agent Hub 的 Ledger 机制直通。自动追踪大模型 API 的成本开销，并从云端钱包扣减，剩余成本低于阈值时动态降级 Agent 资源调度策略。
+- 🫀 **自适应心跳机制 (Adaptive Heartbeat)**：由远端 Hub SaaS 接管状态轮询与心跳控制。在没有实质任务需要处理时自动放缓心跳，避免 API 滥用和无效唤醒。
+- 🧠 **高度结构化事件记忆 (Memory Journal)**：脱离本地单薄文件的限制，重要情节（Event）与 标准操作规程（SOP）全部存储至云端双擎数据库中，实现记忆永久安全留存与多终端共享。
+- 🪞 **深层自我进化 (Soul Reflection)**：空闲期间触发的高维自省机制，依赖远端提供的上下文跨度建议对本地或云端的 `SOUL.md` 发起演进建议，使 Persona 自反馈迭代成长。
 
 ## 🛠 提供的 Agent 工具
 
@@ -47,11 +47,12 @@ cd automaton-lifecycle
 
 ### 2. 配置云端 Agent Hub 通信
 
-该插件现在作为瘦客户端(Thin Client)运行，移除了全部本地 SQLite 依赖。您只需配置环境变量连接至 Agent Hub 即可：
+此插件已**完全重构为瘦客户端 (Thin Client) 模式**，剥离了繁重的本地 SQLite 等存储依赖！所有的记忆索引、SOP 获取、心跳和钱包扣费功能已全部接入云端 Agent Hub Backend API，请直接配置您的 Hub 终端地址。
 
+设置系统环境变量：
 ```bash
-export AGENT_HUB_URL="http://127.0.0.1:8000"
-export AGENT_ID="your-agent-id"
+export AGENT_HUB_URL="http://127.0.0.1:8000"  # 你的云端 Agent Hub API 地址，或者是本地运行的 Hub 地址
+export AGENT_ID="your-agent-uuid"              # 分配给该 Agent 在平台上的独有标识
 ```
 
 ### 3. 修改 OpenClaw 配置文件激活插件

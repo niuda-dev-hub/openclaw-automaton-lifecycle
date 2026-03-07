@@ -55,6 +55,7 @@ async function resolvePaths() {
         path.join(os.homedir(), '.openclaw'),
         path.join('D:\\', 'OpenClaw', '.openclaw'),
         path.join('C:\\', 'OpenClaw', '.openclaw'),
+        path.join('D:\\', 'OpenClaw'), // 用户实际遇到的情况
     ].filter(Boolean);
 
     // 自动探测
@@ -69,19 +70,22 @@ async function resolvePaths() {
 
     // 交互式询问
     if (!found) {
-        warn('未能在标准位置找到 OpenClaw (openclaw.json)。');
+        warn('未能在标准位置找到 OpenClaw (未发现 openclaw.json)。');
         while (true) {
-            const input = await prompt('请输入 OpenClaw 安装路径 (包含 openclaw.json 的目录): ');
+            const input = await prompt('请输入 OpenClaw 安装路径 (包含 openclaw.json 的目录，可拖拽文件夹到此处): ');
             if (!input) {
                 err('路径不能为空，请重新输入或按 Ctrl+C 退出。');
                 continue;
             }
-            const fullPath = path.resolve(input.replace(/^~/, os.homedir()));
+            // 处理 Windows 路径可能带引号的情况，并处理 ~
+            const cleanInput = input.trim().replace(/^["']|["']$/g, '');
+            const fullPath = path.resolve(cleanInput.replace(/^~/, os.homedir()));
+
             if (fs.existsSync(path.join(fullPath, 'openclaw.json'))) {
                 home = fullPath;
                 break;
             } else {
-                err(`路径无效: 在 ${fullPath} 下未找到 openclaw.json`);
+                err(`路径无效: 在 "${fullPath}" 下未找到 openclaw.json`);
             }
         }
     }
@@ -91,8 +95,11 @@ async function resolvePaths() {
     const pluginDir = path.join(extensionsDir, PLUGIN_NAME);
     const openclawJson = path.join(home, 'openclaw.json');
 
-    info(`检测到 OpenClaw Home: ${home}`);
-    info(`插件目标目录: ${pluginDir}`);
+    log('\n─── 目录信息 ────────────────────────────');
+    info(`  OpenClaw Home:  ${home}`);
+    info(`  配置文件:        ${openclawJson}`);
+    info(`  插件安装到:      ${pluginDir}`);
+    log('────────────────────────────────────────\n');
 
     return { home, extensionsDir, pluginDir, openclawJson };
 }
@@ -107,16 +114,33 @@ async function install() {
     log(`  系统: ${IS_WINDOWS ? 'Windows' : os.type()}`);
     log('========================================\n');
 
-    // 1. 创建 extensions 目录
-    fs.mkdirSync(extensionsDir, { recursive: true });
+    // 1. 确定代码来源
+    const isRunningInTarget = path.resolve(PLUGIN_ROOT) === path.resolve(pluginDir);
 
-    // 2. 克隆或更新
-    if (fs.existsSync(path.join(pluginDir, '.git'))) {
-        step('已存在插件目录，拉取最新代码…');
-        run(`git -C "${pluginDir}" pull --ff-only`);
+    // 2. 准备插件目录
+    if (!isRunningInTarget) {
+        step(`正在将代码复制到安装目录…`);
+        fs.mkdirSync(extensionsDir, { recursive: true });
+
+        // 使用 fs.cpSync (Node 16.7+) 进行高效递归复制
+        // 排除 node_modules 和 .git 避免臃肿，如果没法排除就直接复制
+        try {
+            fs.cpSync(PLUGIN_ROOT, pluginDir, {
+                recursive: true,
+                force: true,
+                filter: (src) => !src.includes('node_modules') && !src.includes('.git')
+            });
+            ok('代码复制完成');
+        } catch (e) {
+            warn(`标准复制失败，尝试回退到 Git 模式: ${e.message}`);
+            if (fs.existsSync(path.join(pluginDir, '.git'))) {
+                run(`git -C "${pluginDir}" pull --ff-only`);
+            } else {
+                run(`git clone "${REPO_REMOTE}" "${pluginDir}"`);
+            }
+        }
     } else {
-        step(`克隆插件代码到 ${pluginDir} …`);
-        run(`git clone "${REPO_REMOTE}" "${pluginDir}"`);
+        info('当前就在安装目录中，跳过代码复制步骤。');
     }
 
     // 3. 安装依赖

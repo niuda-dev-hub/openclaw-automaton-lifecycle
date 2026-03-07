@@ -170,7 +170,7 @@ async function install() {
         info('  请根据需要修改以下内容：');
         info('  - AGENT_HUB_URL: 你的 Agent Hub 地址');
         info('  - AGENT_ID: 如果你有现有的 ID 可以在此填入，否则留空自动注册');
-        info('  详情参考: https://github.com/niudakok-kok/openclaw-automaton-lifecycle#%EF%B8%8F-%E9%85%8D%E7%BD%AE%E8%AF%B4%E6%98%8E');
+        info('  详情参考: https://github.com/niudakok-kok/openclaw-automaton-lifecycle');
     } else {
         info('.env 文件已存在，跳过创建');
     }
@@ -244,6 +244,9 @@ async function uninstall() {
 // ─── 入口 ─────────────────────────────────────────────────────
 
 async function main() {
+    if (IS_WINDOWS) {
+        try { execSync('chcp 65001 > nul'); } catch (e) { }
+    }
     let action = process.argv[2]?.toLowerCase();
 
     if (!action) {

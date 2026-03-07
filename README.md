@@ -32,9 +32,10 @@
 只需一条命令，全平台（Windows / macOS / Linux）通用：
 
 ```bash
-# 克隆代码后运行管理脚本（交互式菜单，自动检测系统）
-git clone https://github.com/niudakok-kok/openclaw-automaton-lifecycle.git
-node openclaw-automaton-lifecycle/scripts/manage.js
+# 在任意临时目录运行（脚本会自动把插件安装到 ~/.openclaw/extensions/）
+# 例如：cd ~ 或 cd /tmp
+git clone https://github.com/niudakok-kok/automaton-lifecycle-openclaw.git
+node automaton-lifecycle-openclaw/scripts/manage.js
 ```
 
 脚本启动后会呈现菜单，由你选择**安装**或**移除**：

@@ -80,6 +80,8 @@ export class AutomatonLifecycleManager {
         const envEnableMem = process.env.ENABLE_MEMORY_JOURNAL !== undefined ? process.env.ENABLE_MEMORY_JOURNAL !== 'false' : undefined;
         const envEnableSoul = process.env.ENABLE_SOUL_REFLECTION !== undefined ? process.env.ENABLE_SOUL_REFLECTION !== 'false' : undefined;
 
+        const idFromEnv = envAgentId || "";
+        const idFromRaw = raw.agentId || "";
         this.cfg = {
             dailyBudgetUsd: envBudget ?? raw.dailyBudgetUsd ?? DEFAULTS.dailyBudgetUsd,
             lowComputeThresholdPct: envLowPct ?? raw.lowComputeThresholdPct ?? DEFAULTS.lowComputeThresholdPct,
@@ -91,8 +93,15 @@ export class AutomatonLifecycleManager {
             enableMemoryJournal: envEnableMem ?? raw.enableMemoryJournal ?? DEFAULTS.enableMemoryJournal,
             enableSoulReflection: envEnableSoul ?? raw.enableSoulReflection ?? DEFAULTS.enableSoulReflection,
             agentHubUrl: envHubUrl || raw.agentHubUrl || DEFAULTS.agentHubUrl,
-            agentId: envAgentId || raw.agentId || "",
+            agentId: idFromEnv || idFromRaw || "",
         };
+
+        if (this.cfg.agentId) {
+            const source = idFromEnv ? "Environment (AGENT_ID)" : "Plugin Config (openclaw.json)";
+            this.api.logger?.info?.(`[automaton-lifecycle] Using existing agentId "${this.cfg.agentId}" from ${source}`);
+        } else {
+            this.api.logger?.info?.(`[automaton-lifecycle] No agentId provided. Will auto-register on first use.`);
+        }
 
         // If explicitly provided via config/env, we use it directly. Otherwise it stays empty and triggers auto-register
         this.apiClient = new AutomatonApiClient(this.cfg.agentHubUrl, this.cfg.agentId);
@@ -174,8 +183,13 @@ export class AutomatonLifecycleManager {
                 lowComputeThresholdPct: this.cfg.lowComputeThresholdPct,
                 criticalThresholdPct: this.cfg.criticalThresholdPct,
             });
-        } catch (err) {
-            this.api.logger?.error?.("getSurvivalTier error: " + err);
+        } catch (err: any) {
+            if (err.message?.includes("404")) {
+                this.api.logger?.error?.(`[automaton-lifecycle] Agent Hub returned 404 for ID "${this.cfg.agentId}". ` +
+                    `If this ID was provided via environment variables, please ensure it exists in the Hub or clear your environment variables to allow auto-registration.`);
+            } else {
+                this.api.logger?.error?.("getSurvivalTier error: " + err);
+            }
         }
         return this._tier;
     }

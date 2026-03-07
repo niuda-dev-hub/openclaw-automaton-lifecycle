@@ -29,6 +29,7 @@ export function createMemoryJournalTools(api: OpenClawPluginApi, lifecycle: Auto
         }),
 
         async execute(_id: string, params: Record<string, unknown>) {
+            await lifecycle.ensureRegistered();
             if (!lifecycle.getConfig().enableMemoryJournal) {
                 return { content: [{ type: "text", text: "记忆日志功能已禁用" }] };
             }
@@ -66,6 +67,7 @@ export function createMemoryJournalTools(api: OpenClawPluginApi, lifecycle: Auto
         }),
 
         async execute(_id: string, params: Record<string, unknown>) {
+            await lifecycle.ensureRegistered();
             if (!lifecycle.getConfig().enableMemoryJournal) {
                 return { content: [{ type: "text", text: "记忆日志功能已禁用" }] };
             }
@@ -130,6 +132,7 @@ export function createMemoryJournalTools(api: OpenClawPluginApi, lifecycle: Auto
         }),
 
         async execute(_id: string, params: Record<string, unknown>) {
+            await lifecycle.ensureRegistered();
             const name = String(params.name ?? "").trim();
             const desc = String(params.description ?? "").trim();
             const steps = Array.isArray(params.steps) ? params.steps as string[] : [];
@@ -172,6 +175,7 @@ export function createMemoryJournalTools(api: OpenClawPluginApi, lifecycle: Auto
         }),
 
         async execute(_id: string, params: Record<string, unknown>) {
+            await lifecycle.ensureRegistered();
             const sops = await lifecycle.apiClient.getSops();
             const q = String(params.query ?? "").toLowerCase().trim();
 

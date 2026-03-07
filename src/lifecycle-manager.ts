@@ -11,6 +11,9 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk/llm-task";
 import { computeTier } from "./survival-tier.js";
 import type { SurvivalTier } from "./survival-tier.js";
 import { AutomatonApiClient } from "./api-client.js";
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
 
 export interface LifecycleConfig {
     dailyBudgetUsd: number;
@@ -70,10 +73,66 @@ export class AutomatonLifecycleManager {
             enableMemoryJournal: raw.enableMemoryJournal ?? DEFAULTS.enableMemoryJournal,
             enableSoulReflection: raw.enableSoulReflection ?? DEFAULTS.enableSoulReflection,
             agentHubUrl: envHubUrl || raw.agentHubUrl || DEFAULTS.agentHubUrl,
-            agentId: envAgentId || raw.agentId || DEFAULTS.agentId,
+            agentId: envAgentId || raw.agentId || "", // We leave it empty if not explicitly provided
         };
 
+        // If explicitly provided via config/env, we use it directly. Otherwise it stays empty and triggers auto-register
         this.apiClient = new AutomatonApiClient(this.cfg.agentHubUrl, this.cfg.agentId);
+    }
+
+    private _registrationPromise: Promise<void> | null = null;
+
+    /**
+     * 懒加载身份：如果用户没有提供 agentId，检查本地 .automaton_identity 文件；
+     * 如果文件也没有，则向远端 Agent Hub 申请注册并落盘。
+     */
+    async ensureRegistered(): Promise<void> {
+        if (this.cfg.agentId) return; // 已经有明确配置的 ID
+
+        if (!this._registrationPromise) {
+            this._registrationPromise = this._doRegistration();
+        }
+        return this._registrationPromise;
+    }
+
+    private async _doRegistration(): Promise<void> {
+        const workspaceDir = (this.api.config?.agents?.defaults as Record<string, string> | undefined)?.workspace ??
+            path.join(os.homedir(), ".openclaw", "workspace");
+        const identityFile = path.join(workspaceDir.replace(/^~/, os.homedir()), ".automaton_identity");
+
+        try {
+            // 尝试读取本地已有的身份 ID
+            const content = await fs.readFile(identityFile, "utf-8");
+            const savedId = content.trim();
+            if (savedId) {
+                this.cfg.agentId = savedId;
+                this.apiClient.setAgentId(savedId);
+                this.api.logger?.info?.(`[automaton-lifecycle] Loaded agent identity from ${identityFile}: ${savedId}`);
+                return;
+            }
+        } catch (e) {
+            // 文件不存在或无法读取，继续往下走去注册
+        }
+
+        // 本地没有身份证明，去远端注册！
+        try {
+            this.api.logger?.info?.(`[automaton-lifecycle] No identity found. Auto-registering to Hub ${this.cfg.agentHubUrl}...`);
+            const hostname = os.hostname() || "Local";
+            const res = await this.apiClient.registerAgent(`OpenClaw Agent (${hostname})`, "Auto-registered thin client via automaton-lifecycle");
+
+            this.cfg.agentId = res.id;
+            this.apiClient.setAgentId(res.id);
+
+            // 写入本地保存
+            await fs.mkdir(path.dirname(identityFile), { recursive: true });
+            await fs.writeFile(identityFile, res.id, "utf-8");
+            this.api.logger?.info?.(`[automaton-lifecycle] Successfully registered new identity: ${res.id}`);
+        } catch (e) {
+            this.api.logger?.error?.(`[automaton-lifecycle] Auto-registration failed! Fallback to default. Error: ${e}`);
+            // 最后兜底
+            this.cfg.agentId = "default-agent-id";
+            this.apiClient.setAgentId("default-agent-id");
+        }
     }
 
     getConfig(): LifecycleConfig {
@@ -85,6 +144,7 @@ export class AutomatonLifecycleManager {
      * 每次调用都重新通过 SaaS API 读取账户余额，保证实时性。
      */
     async getSurvivalTier(): Promise<SurvivalTier> {
+        await this.ensureRegistered();
         try {
             const state = await this.apiClient.getAutomatonState();
             // sync to cache 
@@ -107,8 +167,8 @@ export class AutomatonLifecycleManager {
         return this._tier;
     }
 
-    /** 心跳内容为 HEARTBEAT_OK 时调用，返回当前连续空闲次数 */
     async incrementIdleTick(): Promise<number> {
+        await this.ensureRegistered();
         this._idleTickCount++;
         try {
             await this.apiClient.updateAutomatonState({ consecutive_idles: this._idleTickCount });
@@ -120,6 +180,7 @@ export class AutomatonLifecycleManager {
 
     /** 代理产生了实质性动作时重置计数 */
     async resetIdleTick(): Promise<void> {
+        await this.ensureRegistered();
         this._idleTickCount = 0;
         try {
             await this.apiClient.updateAutomatonState({ consecutive_idles: 0 });
@@ -136,12 +197,14 @@ export class AutomatonLifecycleManager {
     }
 
     async updateHeartbeatInterval(intervalMs: number): Promise<void> {
+        await this.ensureRegistered();
         try {
             await this.apiClient.updateAutomatonState({ heartbeat_interval_ms: intervalMs });
         } catch (e) { }
     }
 
     async pingHeartbeat(): Promise<void> {
+        await this.ensureRegistered();
         try {
             await this.apiClient.pingHeartbeat();
         } catch (e) {

@@ -47,6 +47,7 @@ export function createAdaptiveHeartbeatTools(
         }),
 
         async execute(_id: string, params: Record<string, unknown>) {
+            await lifecycle.ensureRegistered();
             const isIdle = params.is_idle === true;
             let message: string;
             let currentMs: number;
@@ -103,6 +104,7 @@ export function createAdaptiveHeartbeatTools(
         parameters: Type.Object({}),
 
         async execute(_id: string, _params: Record<string, unknown>) {
+            await lifecycle.ensureRegistered();
             let currentMs = BASE_INTERVAL_MS;
             try {
                 const state = await lifecycle.apiClient.getAutomatonState();

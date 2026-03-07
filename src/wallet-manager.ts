@@ -20,6 +20,7 @@ export function createWalletTools(api: OpenClawPluginApi, lifecycle: AutomatonLi
             }),
 
             async execute(_id: string, params: Record<string, unknown>) {
+                await lifecycle.ensureRegistered();
                 const amount = Number(params.amount_usd);
                 if (isNaN(amount) || amount <= 0) {
                     return { content: [{ type: "text", text: "❌ 注资金额必须大于 0" }] };

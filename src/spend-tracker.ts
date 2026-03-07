@@ -18,6 +18,7 @@ export function createSpendTrackerTool(api: OpenClawPluginApi, lifecycle: Automa
         parameters: Type.Object({}),
 
         async execute(_id: string, _params: Record<string, unknown>) {
+            await lifecycle.ensureRegistered();
             // 获取最新 SaaS 云端状态
             const state = await lifecycle.apiClient.getAutomatonState();
             // 同时让 lifecycle-manager 的缓存层更新

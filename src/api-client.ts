@@ -60,6 +60,19 @@ export class AutomatonApiClient {
         this.agentId = agentId;
     }
 
+    setAgentId(newId: string) {
+        this.agentId = newId;
+    }
+
+    async registerAgent(name: string, description: string = "Auto-registered via automaton-lifecycle"): Promise<{ id: string, name: string }> {
+        // Send a request to Agent Hub to create a new agent
+        return this.request<{ id: string, name: string }>("POST", `/api/v0.1/agents`, {
+            name,
+            description,
+            agent_type: "openclaw"
+        });
+    }
+
     private async request<T>(method: string, path: string, body?: any): Promise<T> {
         const url = `${this.baseUrl}${path}`;
         const init: RequestInit = {

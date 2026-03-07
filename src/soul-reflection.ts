@@ -60,6 +60,7 @@ export function createSoulReflectionTool(
         }),
 
         async execute(_id: string, params: Record<string, unknown>) {
+            await lifecycle.ensureRegistered();
             if (!lifecycle.getConfig().enableSoulReflection) {
                 return { content: [{ type: "text", text: "Soul 自省功能已禁用（enableSoulReflection: false）" }] };
             }
@@ -126,6 +127,7 @@ export function createSoulReflectionTool(
         }),
 
         async execute(_id: string, params: Record<string, unknown>) {
+            await lifecycle.ensureRegistered();
             const newContent = String(params.new_content ?? "").trim();
             if (!newContent) throw new Error("new_content 不能为空");
 

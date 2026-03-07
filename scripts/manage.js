@@ -48,18 +48,16 @@ function prompt(question) {
 function getOpenClawHome() {
     const fromEnv = process.env.OPENCLAW_HOME;
     if (fromEnv) return fromEnv;
-    return IS_WINDOWS
-        ? path.join('D:\\', 'OpenClaw', '.openclaw')   // Windows 默认 OpenClaw 安装路径
-        : path.join(os.homedir(), '.openclaw');
+    // OpenClaw 默认安装到用户 home 目录下的 .openclaw 文件夹
+    return path.join(os.homedir(), '.openclaw');
 }
 
 function getPaths() {
     const home = getOpenClawHome();
-    // OpenClaw 的插件目录结构：{home}/workspace/.openclaw/extensions/
-    // - home:           D:\OpenClaw\.openclaw
-    // - workspace 配置: D:\OpenClaw\.openclaw\workspace\.openclaw\
-    // - extensions:     D:\OpenClaw\.openclaw\workspace\.openclaw\extensions\
-    const extensionsDir = path.join(home, 'workspace', '.openclaw', 'extensions');
+    // 官方标准路径：{OPENCLAW_HOME}/extensions/<plugin-id>
+    // Linux/macOS: ~/.openclaw/extensions/
+    // Windows:     C:\Users\<name>\.openclaw\extensions\
+    const extensionsDir = path.join(home, 'extensions');
     const pluginDir = path.join(extensionsDir, PLUGIN_NAME);
     const openclawJson = path.join(home, 'openclaw.json');
     return { home, extensionsDir, pluginDir, openclawJson };

@@ -117,12 +117,12 @@ openclaw gateway stop; openclaw gateway start
 
 **Linux / macOS:**
 ```bash
-bash ~/.openclaw/workspace/.openclaw/extensions/automaton-lifecycle/scripts/uninstall.sh
+node ~/.openclaw/extensions/automaton-lifecycle/scripts/manage.js uninstall
 ```
 
 **Windows (PowerShell):**
 ```powershell
-& "$env:OPENCLAW_HOME\workspace\.openclaw\extensions\automaton-lifecycle\scripts\uninstall.ps1"
+node "$HOME\.openclaw\extensions\automaton-lifecycle\scripts\manage.js" uninstall
 ```
 
 移除脚本会进行二次确认，然后删除整个插件目录（包含你的 `.env` 和所有数据）。

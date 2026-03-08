@@ -1,9 +1,8 @@
 /**
  * automaton-lifecycle 插件入口
  *
- * 注册插件的全部 10 个工具：
+ * 注册插件的全部 9 个工具：
  *  - automaton_check_spend         花费查询与 Survival Tier
- *  - automaton_fund_wallet         钱包注资（管理用途）
  *  - automaton_heartbeat_report    上报心跳结果（是否空闲）
  *  - automaton_heartbeat_status    查看自适应心跳状态
  *  - automaton_remember_event      保存情节记忆事件
@@ -19,7 +18,6 @@ import { createAdaptiveHeartbeatTools } from "./src/adaptive-heartbeat.js";
 import { createMemoryJournalTools } from "./src/memory-journal.js";
 import { createSoulReflectionTool } from "./src/soul-reflection.js";
 import { AutomatonLifecycleManager } from "./src/lifecycle-manager.js";
-import { createWalletTools } from "./src/wallet-manager.js";
 
 export default function register(api: OpenClawPluginApi) {
   // 初始化核心生命周期管理器（跨模块共享状态）
@@ -29,25 +27,20 @@ export default function register(api: OpenClawPluginApi) {
   const checkSpendTool = createSpendTrackerTool(api, lifecycle) as unknown as AnyAgentTool;
   api.registerTool(checkSpendTool, { name: checkSpendTool.name });
 
-  // 工具 2: automaton_fund_wallet (管理员加钱)
-  for (const tool of createWalletTools(api, lifecycle)) {
-    api.registerTool(tool as unknown as AnyAgentTool, { name: tool.name });
-  }
-
-  // 工具 3-4: automaton_heartbeat_report / automaton_heartbeat_status
+  // 工具 2-3: automaton_heartbeat_report / automaton_heartbeat_status
   for (const tool of createAdaptiveHeartbeatTools(api, lifecycle)) {
     api.registerTool(tool as unknown as AnyAgentTool, { name: tool.name });
   }
 
-  // 工具 5-8: 结构化记忆日志（记录/检索事件、保存/检索 SOP）
+  // 工具 4-7: 结构化记忆日志（记录/检索事件、保存/检索 SOP）
   for (const tool of createMemoryJournalTools(api, lifecycle)) {
     api.registerTool(tool as unknown as AnyAgentTool, { name: tool.name });
   }
 
-  // 工具 9-10: SOUL.md 自省（分析 + 写入）
+  // 工具 8-9: SOUL.md 自省（分析 + 写入）
   const { reflectTool, updateTool } = createSoulReflectionTool(api, lifecycle);
   api.registerTool(reflectTool as unknown as AnyAgentTool, { name: reflectTool.name });
   api.registerTool(updateTool as unknown as AnyAgentTool, { name: updateTool.name });
 
-  api.logger?.info?.("automaton-lifecycle: 10 tools registered successfully (with wallet funding).");
+  api.logger?.info?.("automaton-lifecycle: 9 tools registered successfully.");
 }

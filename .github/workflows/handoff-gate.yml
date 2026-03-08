@@ -1,0 +1,48 @@
+name: Handoff Documentation Gate
+
+on:
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  require-handoff-doc-updates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify handoff docs updated in PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.setFailed('No pull_request payload found.');
+              return;
+            }
+
+            const files = await github.paginate(
+              github.rest.pulls.listFiles,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                per_page: 100,
+              }
+            );
+
+            const changed = files.map(f => f.filename);
+            const hasEvidence = changed.some((f) =>
+              f === 'DEVELOPMENT_RECORDS.md' ||
+              f === 'PROJECT_OVERVIEW.md' ||
+              f === 'HANDOFF_RUNBOOK.md' ||
+              f === 'SYSTEM_OVERVIEW.md' ||
+              f.startsWith('docs/dev-records/')
+            );
+
+            if (!hasEvidence) {
+              core.setFailed(
+                'PR must include handoff documentation updates: DEVELOPMENT_RECORDS.md, docs/dev-records/*, PROJECT_OVERVIEW.md, HANDOFF_RUNBOOK.md, or SYSTEM_OVERVIEW.md'
+              );
+            }

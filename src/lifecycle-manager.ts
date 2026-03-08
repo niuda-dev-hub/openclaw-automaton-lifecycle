@@ -34,6 +34,7 @@ export interface LifecycleConfig {
     enableSoulReflection: boolean;
     agentHubUrl: string;
     agentId: string;
+    identityFilePath?: string;
 }
 
 const DEFAULTS: LifecycleConfig = {
@@ -48,6 +49,7 @@ const DEFAULTS: LifecycleConfig = {
     enableSoulReflection: true,
     agentHubUrl: "http://127.0.0.1:8000",
     agentId: "default-agent-id",
+    identityFilePath: undefined,
 };
 
 export class AutomatonLifecycleManager {
@@ -79,6 +81,7 @@ export class AutomatonLifecycleManager {
         const envSoulModel = process.env.SOUL_REFLECTION_MODEL || undefined;
         const envEnableMem = process.env.ENABLE_MEMORY_JOURNAL !== undefined ? process.env.ENABLE_MEMORY_JOURNAL !== 'false' : undefined;
         const envEnableSoul = process.env.ENABLE_SOUL_REFLECTION !== undefined ? process.env.ENABLE_SOUL_REFLECTION !== 'false' : undefined;
+        const envIdentityFile = process.env.AGENT_IDENTITY_FILE || undefined;
 
         const idFromEnv = envAgentId || "";
         const idFromRaw = raw.agentId || "";
@@ -94,6 +97,7 @@ export class AutomatonLifecycleManager {
             enableSoulReflection: envEnableSoul ?? raw.enableSoulReflection ?? DEFAULTS.enableSoulReflection,
             agentHubUrl: envHubUrl || raw.agentHubUrl || DEFAULTS.agentHubUrl,
             agentId: idFromEnv || idFromRaw || "",
+            identityFilePath: envIdentityFile || raw.identityFilePath || DEFAULTS.identityFilePath,
         };
 
         if (this.cfg.agentId) {
@@ -125,7 +129,9 @@ export class AutomatonLifecycleManager {
     private async _doRegistration(): Promise<void> {
         const workspaceDir = (this.api.config?.agents?.defaults as Record<string, string> | undefined)?.workspace ??
             path.join(os.homedir(), ".openclaw", "workspace");
-        const identityFile = path.join(workspaceDir.replace(/^~/, os.homedir()), ".automaton_identity");
+        const identityFile = this.cfg.identityFilePath
+            ? this.cfg.identityFilePath.replace(/^~/, os.homedir())
+            : path.join(workspaceDir.replace(/^~/, os.homedir()), ".automaton_identity");
 
         try {
             // 尝试读取本地已有的身份 ID
@@ -135,6 +141,7 @@ export class AutomatonLifecycleManager {
                 this.cfg.agentId = savedId;
                 this.apiClient.setAgentId(savedId);
                 this.api.logger?.info?.(`[automaton-lifecycle] Loaded agent identity from ${identityFile}: ${savedId}`);
+                this.api.logger?.warn?.(`[automaton-lifecycle] Reusing persisted identity. If multiple agents share this file, they will share the same Hub identity.`);
                 return;
             }
         } catch (e) {
@@ -154,6 +161,7 @@ export class AutomatonLifecycleManager {
             await fs.mkdir(path.dirname(identityFile), { recursive: true });
             await fs.writeFile(identityFile, res.id, "utf-8");
             this.api.logger?.info?.(`[automaton-lifecycle] Successfully registered new identity: ${res.id}`);
+            this.api.logger?.info?.(`[automaton-lifecycle] Identity persisted to ${identityFile}. Ensure each agent instance uses its own workspace or AGENT_IDENTITY_FILE.`);
 
             // 立即发送第一次心跳，确保 Hub 端状态为在线
             await this.pingHeartbeat();

@@ -23,6 +23,8 @@
 
 一句话：**Hub 是权威后端，lifecycle 是客户端插件。**
 
+跨仓全景文档：`../SYSTEM_OVERVIEW.md`
+
 ---
 
 ## 核心能力
@@ -108,3 +110,15 @@ node scripts/manage.js uninstall
 - 后端：`openclaw-agent-hub`
   - https://github.com/niuda-dev-hub/openclaw-agent-hub
   - 该仓库 README 已同步标注本插件的配套关系与职责边界
+
+## 版本管理
+
+- 本仓库遵循 `VERSIONING.md` 中的统一版本策略（SemVer + Git Tag + CHANGELOG）
+- 发布 Tag 采用 `vX.Y.Z`，并要求与 `package.json.version` 严格一致
+- 发布说明见 `CHANGELOG.md`
+
+## 移交与全景文档
+
+- 项目全景：`PROJECT_OVERVIEW.md`
+- 移交手册：`HANDOFF_RUNBOOK.md`
+- 开发过程索引：`DEVELOPMENT_RECORDS.md`

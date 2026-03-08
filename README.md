@@ -84,6 +84,7 @@ node scripts/manage.js uninstall
 |---|---|---|
 | `AGENT_HUB_URL` | Agent Hub 后端地址 | `http://127.0.0.1:8000` |
 | `AGENT_ID` | Agent UUID（留空自动注册） | _(空)_ |
+| `AGENT_IDENTITY_FILE` | 身份文件路径（多实例部署时建议显式区分） | _(空)_ |
 | `DAILY_BUDGET_USD` | 每日预算上限 | `5.0` |
 | `LOW_COMPUTE_THRESHOLD_PCT` | 低算力阈值 | `80` |
 | `CRITICAL_THRESHOLD_PCT` | 告警阈值 | `95` |
@@ -93,6 +94,11 @@ node scripts/manage.js uninstall
 | `ENABLE_SOUL_REFLECTION` | 是否启用 SOUL 自省 | `true` |
 
 完整示例见：`.env.example`
+
+> 重要：如果多个 Agent 实例共享同一个 workspace，且都读取同一个 `.automaton_identity` 文件，它们会复用同一个 Hub 身份。多实例部署时请至少做到以下之一：
+> 1. 为每个实例使用独立 workspace
+> 2. 为每个实例设置不同的 `AGENT_IDENTITY_FILE`
+> 3. 显式指定不同的 `AGENT_ID`
 
 ---
 

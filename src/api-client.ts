@@ -17,7 +17,6 @@ export interface AutomatonState {
 }
 
 export interface WalletState {
-    agent_id: string;
     balance_usd: number;
     lifetime_spent_usd: number;
     lifetime_earned_usd: number;
@@ -105,10 +104,6 @@ export class AutomatonApiClient {
 
     async getWallet(): Promise<WalletState> {
         return this.request<WalletState>("GET", `/api/v0.1/agents/${this.agentId}/wallet`);
-    }
-
-    async fundWallet(amountUsd: number): Promise<WalletState> {
-        return this.request<WalletState>("POST", `/api/v0.1/agents/${this.agentId}/wallet/fund`, { amount_usd: amountUsd });
     }
 
     async pingHeartbeat(): Promise<void> {

@@ -36,12 +36,11 @@
 
 ---
 
-## 插件工具（当前 10 个）
+## 插件工具（当前 9 个）
 
 | 工具名 | 用途 |
 |---|---|
 | `automaton_check_spend` | 查询今日花费与 Survival Tier。 |
-| `automaton_fund_wallet` | 为 Agent 钱包注资（管理用途）。 |
 | `automaton_heartbeat_report` | 上报是否空闲，触发心跳节流逻辑。 |
 | `automaton_heartbeat_status` | 查看当前心跳间隔状态。 |
 | `automaton_remember_event` | 保存事件记忆到远端。 |
@@ -99,7 +98,6 @@ node scripts/manage.js uninstall
 
 ## 与 Hub 对接时的安全提示
 
-- `automaton_fund_wallet` 在 Hub 侧通常受 Admin Token 约束
 - 不要在仓库提交任何明文 token / 私钥 / 密码
 - 所有敏感值请放在本地环境变量或 GitHub Secrets 中
 

@@ -1,8 +1,9 @@
 /**
  * automaton-lifecycle 插件入口
  *
- * 注册插件的全部 8 个工具：
+ * 注册插件的全部 10 个工具：
  *  - automaton_check_spend         花费查询与 Survival Tier
+ *  - automaton_fund_wallet         钱包注资（管理用途）
  *  - automaton_heartbeat_report    上报心跳结果（是否空闲）
  *  - automaton_heartbeat_status    查看自适应心跳状态
  *  - automaton_remember_event      保存情节记忆事件

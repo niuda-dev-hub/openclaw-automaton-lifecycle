@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag and package version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ -z "$PKG" ]; then
+            echo "Cannot find package version" >&2
+            exit 1
+          fi
+          if [ "$TAG" != "$PKG" ]; then
+            echo "Tag v$TAG does not match package version $PKG" >&2
+            exit 1
+          fi
+
+      - name: Generate release notes
+        shell: bash
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            awk 'BEGIN{flag=0} /^## \[/{if(flag) exit} /^## \[Unreleased\]/{next} /^## \[/ {flag=1} flag {print}' CHANGELOG.md > release_notes.txt || true
+          fi
+          if [ ! -s release_notes.txt ]; then
+            echo "No CHANGELOG slice found; fallback to auto notes." > release_notes.txt
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.txt
+          generate_release_notes: true

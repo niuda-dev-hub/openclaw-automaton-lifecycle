@@ -1,5 +1,4 @@
 {
-    "extends": "../shared/tsconfig.base.json",
     "compilerOptions": {
         "outDir": "./dist",
         "rootDir": ".",
@@ -9,7 +8,12 @@
         "strict": true,
         "declaration": true,
         "esModuleInterop": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "types": ["node"],
+        "baseUrl": ".",
+        "paths": {
+            "openclaw/plugin-sdk/llm-task": ["src/openclaw-shim/llm-task.d.ts"]
+        }
     },
     "include": [
         "index.ts",

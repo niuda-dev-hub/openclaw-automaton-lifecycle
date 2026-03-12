@@ -4,17 +4,19 @@
     "private": true,
     "description": "Automaton-inspired lifecycle management plugin for OpenClaw (JSON-based, zero native deps)",
     "type": "module",
-    "dependencies": {
-        "@sinclair/typebox": "^0.34.48",
-        "dotenv": "^16.4.0",
-        "undici": "^6.0.0"
-    },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.48",
+    "dotenv": "^16.4.0",
+    "typescript": "^5.9.3",
+    "undici": "^6.0.0"
+  },
     "devDependencies": {
         "@types/node": "^20.0.0"
     },
-    "scripts": {
-        "manage": "node scripts/manage.js"
-    },
+  "scripts": {
+    "manage": "node scripts/manage.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
     "openclaw": {
         "extensions": [
             "./index.ts"

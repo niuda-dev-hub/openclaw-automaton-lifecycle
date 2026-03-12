@@ -83,7 +83,10 @@ node scripts/manage.js uninstall
 | 变量名 | 说明 | 默认值 |
 |---|---|---|
 | `AGENT_HUB_URL` | Agent Hub 后端地址 | `http://127.0.0.1:8000` |
+| `CF_ACCESS_CLIENT_ID` | Cloudflare Access Service Token Client ID（可选，Access 保护 /api/* 时必填） | _(空)_ |
+| `CF_ACCESS_CLIENT_SECRET` | Cloudflare Access Service Token Client Secret（可选，Access 保护 /api/* 时必填） | _(空)_ |
 | `AGENT_ID` | Agent UUID（留空自动注册） | _(空)_ |
+| `AGENT_HUB_TOKEN` | Agent Token（注册时由 Hub 自动生成并下发，可手动覆盖） | _(空)_ |
 | `AGENT_IDENTITY_FILE` | 身份文件路径（多实例部署时建议显式区分） | _(空)_ |
 | `DAILY_BUDGET_USD` | 每日预算上限 | `5.0` |
 | `LOW_COMPUTE_THRESHOLD_PCT` | 低算力阈值 | `80` |
@@ -94,6 +97,9 @@ node scripts/manage.js uninstall
 | `ENABLE_SOUL_REFLECTION` | 是否启用 SOUL 自省 | `true` |
 
 完整示例见：`.env.example`
+
+> 注意：首次注册成功后，插件会在 `.automaton_identity` 中保存 `agent_id` 与 `agent_token`（JSON 格式）。
+> 旧版本仅保存纯文本 `agent_id`，新版本兼容读取。建议多实例部署时为每个实例设置不同的 `AGENT_IDENTITY_FILE`。
 
 > 重要：如果多个 Agent 实例共享同一个 workspace，且都读取同一个 `.automaton_identity` 文件，它们会复用同一个 Hub 身份。多实例部署时请至少做到以下之一：
 > 1. 为每个实例使用独立 workspace

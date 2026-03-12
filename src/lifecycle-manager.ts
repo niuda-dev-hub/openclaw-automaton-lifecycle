@@ -34,6 +34,7 @@ export interface LifecycleConfig {
     enableSoulReflection: boolean;
     agentHubUrl: string;
     agentId: string;
+    agentToken: string;
     identityFilePath?: string;
 }
 
@@ -49,6 +50,7 @@ const DEFAULTS: LifecycleConfig = {
     enableSoulReflection: true,
     agentHubUrl: "http://127.0.0.1:8000",
     agentId: "default-agent-id",
+    agentToken: "",
     identityFilePath: undefined,
 };
 
@@ -72,6 +74,7 @@ export class AutomatonLifecycleManager {
         // 从 .env 或环境变量读取配置
         const envHubUrl = process.env.AGENT_HUB_URL;
         const envAgentId = process.env.AGENT_ID;
+        const envAgentToken = process.env.AGENT_HUB_TOKEN;
         const envBudget = process.env.DAILY_BUDGET_USD ? parseFloat(process.env.DAILY_BUDGET_USD) : undefined;
         const envLowPct = process.env.LOW_COMPUTE_THRESHOLD_PCT ? parseInt(process.env.LOW_COMPUTE_THRESHOLD_PCT) : undefined;
         const envCritPct = process.env.CRITICAL_THRESHOLD_PCT ? parseInt(process.env.CRITICAL_THRESHOLD_PCT) : undefined;
@@ -85,6 +88,8 @@ export class AutomatonLifecycleManager {
 
         const idFromEnv = envAgentId || "";
         const idFromRaw = raw.agentId || "";
+        const tokenFromEnv = envAgentToken || "";
+        const tokenFromRaw = raw.agentToken || "";
         this.cfg = {
             dailyBudgetUsd: envBudget ?? raw.dailyBudgetUsd ?? DEFAULTS.dailyBudgetUsd,
             lowComputeThresholdPct: envLowPct ?? raw.lowComputeThresholdPct ?? DEFAULTS.lowComputeThresholdPct,
@@ -97,6 +102,7 @@ export class AutomatonLifecycleManager {
             enableSoulReflection: envEnableSoul ?? raw.enableSoulReflection ?? DEFAULTS.enableSoulReflection,
             agentHubUrl: envHubUrl || raw.agentHubUrl || DEFAULTS.agentHubUrl,
             agentId: idFromEnv || idFromRaw || "",
+            agentToken: tokenFromEnv || tokenFromRaw || "",
             identityFilePath: envIdentityFile || raw.identityFilePath || DEFAULTS.identityFilePath,
         };
 
@@ -107,8 +113,16 @@ export class AutomatonLifecycleManager {
             this.api.logger?.info?.(`[automaton-lifecycle] No agentId provided. Will auto-register on first use.`);
         }
 
+        if (this.cfg.agentToken) {
+            const source = tokenFromEnv ? "Environment (AGENT_HUB_TOKEN)" : "Plugin Config (openclaw.json)";
+            this.api.logger?.info?.(`[automaton-lifecycle] Using agent token from ${source}`);
+        }
+
         // If explicitly provided via config/env, we use it directly. Otherwise it stays empty and triggers auto-register
         this.apiClient = new AutomatonApiClient(this.cfg.agentHubUrl, this.cfg.agentId);
+        if (this.cfg.agentToken) {
+            this.apiClient.setAgentToken(this.cfg.agentToken);
+        }
     }
 
     private _registrationPromise: Promise<void> | null = null;
@@ -136,10 +150,26 @@ export class AutomatonLifecycleManager {
         try {
             // 尝试读取本地已有的身份 ID
             const content = await fs.readFile(identityFile, "utf-8");
-            const savedId = content.trim();
+            let savedId = "";
+            let savedToken = "";
+
+            try {
+                const parsed = JSON.parse(content) as { agent_id?: string; agent_token?: string };
+                savedId = parsed?.agent_id?.trim() || "";
+                savedToken = parsed?.agent_token?.trim() || "";
+            } catch {
+                savedId = content.trim();
+            }
+
             if (savedId) {
                 this.cfg.agentId = savedId;
                 this.apiClient.setAgentId(savedId);
+            }
+            if (savedToken) {
+                this.cfg.agentToken = savedToken;
+                this.apiClient.setAgentToken(savedToken);
+            }
+            if (savedId) {
                 this.api.logger?.info?.(`[automaton-lifecycle] Loaded agent identity from ${identityFile}: ${savedId}`);
                 this.api.logger?.warn?.(`[automaton-lifecycle] Reusing persisted identity. If multiple agents share this file, they will share the same Hub identity.`);
                 return;
@@ -154,13 +184,18 @@ export class AutomatonLifecycleManager {
             const hostname = os.hostname() || "Local";
             const res = await this.apiClient.registerAgent(`OpenClaw Agent (${hostname})`, "Auto-registered thin client via automaton-lifecycle");
 
-            this.cfg.agentId = res.id;
-            this.apiClient.setAgentId(res.id);
+            this.cfg.agentId = res.agent.id;
+            this.apiClient.setAgentId(this.cfg.agentId);
+            this.cfg.agentToken = res.agent_token;
+            this.apiClient.setAgentToken(res.agent_token);
 
             // 写入本地保存
             await fs.mkdir(path.dirname(identityFile), { recursive: true });
-            await fs.writeFile(identityFile, res.id, "utf-8");
-            this.api.logger?.info?.(`[automaton-lifecycle] Successfully registered new identity: ${res.id}`);
+            await fs.writeFile(identityFile, JSON.stringify({
+                agent_id: this.cfg.agentId,
+                agent_token: this.cfg.agentToken || undefined,
+            }, null, 2), "utf-8");
+            this.api.logger?.info?.(`[automaton-lifecycle] Successfully registered new identity: ${this.cfg.agentId}`);
             this.api.logger?.info?.(`[automaton-lifecycle] Identity persisted to ${identityFile}. Ensure each agent instance uses its own workspace or AGENT_IDENTITY_FILE.`);
 
             // 立即发送第一次心跳，确保 Hub 端状态为在线

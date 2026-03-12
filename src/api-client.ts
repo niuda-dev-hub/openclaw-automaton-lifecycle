@@ -50,22 +50,38 @@ export interface SoulHistory {
     created_at: number;
 }
 
+export interface AgentRegistrationResponse {
+    agent: { id: string; name: string };
+    agent_token: string;
+}
+
 export class AutomatonApiClient {
     private baseUrl: string;
     public agentId: string;
+    private agentToken: string;
+    private accessClientId: string;
+    private accessClientSecret: string;
 
     constructor(baseUrl: string, agentId: string) {
         this.baseUrl = baseUrl.replace(/\/$/, "");
         this.agentId = agentId;
+
+        this.accessClientId = String(process.env.CF_ACCESS_CLIENT_ID || "");
+        this.accessClientSecret = String(process.env.CF_ACCESS_CLIENT_SECRET || "");
+        this.agentToken = String(process.env.AGENT_HUB_TOKEN || "");
     }
 
     setAgentId(newId: string) {
         this.agentId = newId;
     }
 
-    async registerAgent(name: string, description: string = "Auto-registered via automaton-lifecycle"): Promise<{ id: string, name: string }> {
+    setAgentToken(token: string) {
+        this.agentToken = token;
+    }
+
+    async registerAgent(name: string, description: string = "Auto-registered via automaton-lifecycle"): Promise<AgentRegistrationResponse> {
         // Send a request to Agent Hub to create a new agent
-        return this.request<{ id: string, name: string }>("POST", `/api/v0.1/agents`, {
+        return this.request<AgentRegistrationResponse>("POST", `/api/v0.1/agents`, {
             name,
             description,
             agent_type: "openclaw"
@@ -80,6 +96,15 @@ export class AutomatonApiClient {
                 "Content-Type": "application/json",
             },
         };
+
+        if (this.accessClientId && this.accessClientSecret) {
+            (init.headers as Record<string, string>)["CF-Access-Client-Id"] = this.accessClientId;
+            (init.headers as Record<string, string>)["CF-Access-Client-Secret"] = this.accessClientSecret;
+        }
+
+        if (this.agentToken) {
+            (init.headers as Record<string, string>)["Authorization"] = `Bearer ${this.agentToken}`;
+        }
         if (body) {
             init.body = JSON.stringify(body);
         }

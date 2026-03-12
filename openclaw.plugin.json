@@ -46,6 +46,10 @@
                 "type": "string",
                 "description": "Agent Hub API 的基础连接地址 (如 http://127.0.0.1:8000)。默认从环境变量读取，若填写此项将覆盖系统配置。"
             },
+            "agentToken": {
+                "type": "string",
+                "description": "Agent Token（Hub 注册后下发，可选）。若填写将覆盖 AGENT_HUB_TOKEN 环境变量。"
+            },
             "dbPath": {
                 "type": "string",
                 "description": "Path to the SQLite DB for spend tracking and memory journal. Default: ~/.openclaw/automaton-lifecycle.db"

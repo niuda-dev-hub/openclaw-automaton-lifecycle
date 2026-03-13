@@ -53,6 +53,126 @@
             "dbPath": {
                 "type": "string",
                 "description": "Path to the SQLite DB for spend tracking and memory journal. Default: ~/.openclaw/automaton-lifecycle.db"
+            },
+            "telegram": {
+                "type": "object",
+                "description": "Telegram notification settings (optional)",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "Enable Telegram notifications. Default: false"
+                    },
+                    "botToken": {
+                        "type": "string",
+                        "description": "Telegram Bot Token (or use TELEGRAM_BOT_TOKEN env var)"
+                    },
+                    "chatId": {
+                        "type": "string",
+                        "description": "Telegram Chat ID (or use TELEGRAM_CHAT_ID env var)"
+                    },
+                    "parseMode": {
+                        "type": "string",
+                        "enum": [
+                            "MarkdownV2",
+                            "HTML"
+                        ],
+                        "description": "Message parse mode. Default: (unset -> plain text)"
+                    },
+                    "silentMode": {
+                        "type": "object",
+                        "description": "Night/silent mode settings",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean",
+                                "description": "Enable silent mode during night hours. Default: false"
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "description": "Timezone for silent mode (e.g., Asia/Shanghai). Default: UTC"
+                            },
+                            "nightStart": {
+                                "type": "number",
+                                "description": "Night start hour (0-23). Default: 22"
+                            },
+                            "nightEnd": {
+                                "type": "number",
+                                "description": "Night end hour (0-23). Default: 8"
+                            }
+                        }
+                    },
+                    "notifyOn": {
+                        "type": "object",
+                        "description": "Which events trigger notifications",
+                        "properties": {
+                            "budgetAlert": {
+                                "type": "boolean",
+                                "description": "Notify when budget reaches 80%. Default: true"
+                            },
+                            "heartbeatAnomaly": {
+                                "type": "boolean",
+                                "description": "Notify on heartbeat deep sleep activation. Default: true"
+                            },
+                            "soulUpdate": {
+                                "type": "boolean",
+                                "description": "Notify when SOUL.md is updated. Default: false"
+                            },
+                            "agentEnd": {
+                                "type": "boolean",
+                                "description": "Notify on agent task completion. Default: false"
+                            }
+                        }
+                    }
+                }
+            },
+            "progressMonitor": {
+                "type": "object",
+                "description": "Progress monitor settings (agent_end watcher; optional AI analysis)",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "Enable progress monitor. Default: false"
+                    },
+                    "useAi": {
+                        "type": "boolean",
+                        "description": "Enable AI analysis mode. Default: false"
+                    },
+                    "aiUrl": {
+                        "type": "string",
+                        "description": "AI API URL (required when useAi=true). Env: PROGRESS_MONITOR_AI_URL"
+                    },
+                    "aiKey": {
+                        "type": "string",
+                        "description": "AI API Key (required when useAi=true). Env: PROGRESS_MONITOR_AI_KEY"
+                    },
+                    "aiModel": {
+                        "type": "string",
+                        "description": "AI model id. Default: minimax-m2.5"
+                    },
+                    "notifyOnAiError": {
+                        "type": "boolean",
+                        "description": "Notify immediately when AI call fails. Default: false"
+                    },
+                    "cooldownMs": {
+                        "type": "number",
+                        "description": "Cooldown between notifications (ms). Default: 120000"
+                    },
+                    "monitorNoReply": {
+                        "type": "boolean",
+                        "description": "Enable replies=0 alert. Default: true"
+                    },
+                    "monitorSlowReply": {
+                        "type": "boolean",
+                        "description": "Enable slow reply alert. Default: true"
+                    },
+                    "slowReplyThresholdMs": {
+                        "type": "number",
+                        "description": "Slow reply threshold (ms). Default: 30000"
+                    },
+                    "noReplyCooldownMs": {
+                        "type": "number",
+                        "description": "Cooldown for no-reply/slow-reply alerts (ms). Default: 600000"
+                    }
+                }
             }
         }
     }

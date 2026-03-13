@@ -8,6 +8,7 @@
  *  4. 对外提供 getSurvivalTier() / getConfig() 等查询接口
  */
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/llm-task";
+import { EventEmitter } from "node:events";
 import { computeTier } from "./survival-tier.js";
 import type { SurvivalTier } from "./survival-tier.js";
 import { AutomatonApiClient } from "./api-client.js";
@@ -54,7 +55,7 @@ const DEFAULTS: LifecycleConfig = {
     identityFilePath: undefined,
 };
 
-export class AutomatonLifecycleManager {
+export class AutomatonLifecycleManager extends EventEmitter {
     private api: OpenClawPluginApi;
     private cfg: LifecycleConfig;
     public apiClient: AutomatonApiClient;
@@ -66,6 +67,7 @@ export class AutomatonLifecycleManager {
     private _idleTickCount = 0;
 
     constructor(api: OpenClawPluginApi) {
+        super();
         this.api = api;
 
         // 合并配置优先级：.env 文件 → openclaw.json 插件配置 → 默认値
@@ -123,6 +125,14 @@ export class AutomatonLifecycleManager {
         if (this.cfg.agentToken) {
             this.apiClient.setAgentToken(this.cfg.agentToken);
         }
+    }
+
+    /**
+     * Emit a lifecycle event to notify subscribers
+     */
+    emitLifecycleEvent<T>(event: string, data: T): void {
+        this.emit(event, data);
+        this.api.logger?.info?.(`[automaton-lifecycle] Event emitted: ${event}`);
     }
 
     private _registrationPromise: Promise<void> | null = null;

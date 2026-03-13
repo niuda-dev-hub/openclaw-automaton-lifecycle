@@ -25,6 +25,18 @@ export function createSpendTrackerTool(api: OpenClawPluginApi, lifecycle: Automa
             const tier = await lifecycle.getSurvivalTier();
             const cfg = lifecycle.getConfig();
 
+            // Calculate spending percentage
+            const spentPct = (state.daily_spent_usd / cfg.dailyBudgetUsd) * 100;
+
+            // Emit budget alert if spending >= 80% of budget
+            if (spentPct >= 80) {
+                lifecycle.emitLifecycleEvent("budget:alert", {
+                    spent: state.daily_spent_usd,
+                    budget: cfg.dailyBudgetUsd,
+                    pct: spentPct
+                });
+            }
+
             return {
                 content: [
                     {

@@ -150,6 +150,12 @@ export function createSoulReflectionTool(
             // 保存历史快照至 SaaS 云端
             await lifecycle.apiClient.recordSoulHistory(source, newContent, currentContent, "Automated SOUL Reflection");
 
+            // Emit soul update event
+            lifecycle.emitLifecycleEvent("soul:update", {
+                hash: contentHash,
+                source: source
+            });
+
             return {
                 content: [
                     {

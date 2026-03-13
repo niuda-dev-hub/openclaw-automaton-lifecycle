@@ -67,6 +67,14 @@ export function createAdaptiveHeartbeatTools(
                     const maxMs = BASE_INTERVAL_MS * 4;
                     newIntervalMs = Math.min(currentMs * cfg.idleHeartbeatMultiplier, maxMs);
                     await lifecycle.updateHeartbeatInterval(newIntervalMs);
+
+                    // Emit heartbeat anomaly event when deep sleep is activated
+                    lifecycle.emitLifecycleEvent("heartbeat:anomaly", {
+                        idleCount: idleCount,
+                        intervalMs: newIntervalMs,
+                        reason: "deep_sleep_activated",
+                    });
+
                     message =
                         `🌙 连续空闲 ${idleCount} 次，已将心跳间隔延长至 **${newIntervalMs / 60000} 分钟**（深度休眠模式）。`;
                 } else {

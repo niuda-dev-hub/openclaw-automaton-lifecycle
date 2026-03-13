@@ -1,5 +1,7 @@
 # OpenClaw event-driven progress monitor + notifier plan
 
+> 状态：规划文档（未在本仓库实现）。
+
 ## Goal
 Upgrade an OpenClaw plugin that currently relies mostly on `agent_end` to a robust event-driven design using official `api.on(...)` hooks, with:
 

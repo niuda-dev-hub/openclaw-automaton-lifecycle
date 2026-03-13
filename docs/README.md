@@ -8,6 +8,13 @@
 - 跨仓全景（Hub + Lifecycle）：`../SYSTEM_OVERVIEW.md`
 - 移交手册：`../HANDOFF_RUNBOOK.md`
 
+推荐阅读顺序（新贡献者）：
+
+1. `./architecture.md`
+2. `./configuration.md`
+3. `./verification.md`
+4. （规划）`./plans/openclaw-event-driven-progress-monitor.md`
+
 ## 开发中重点文档
 
 - 架构与模块：`./architecture.md`

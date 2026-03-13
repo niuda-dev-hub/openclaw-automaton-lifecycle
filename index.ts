@@ -18,10 +18,17 @@ import { createAdaptiveHeartbeatTools } from "./src/adaptive-heartbeat.js";
 import { createMemoryJournalTools } from "./src/memory-journal.js";
 import { createSoulReflectionTool } from "./src/soul-reflection.js";
 import { AutomatonLifecycleManager } from "./src/lifecycle-manager.js";
+import { createTelegramNotifier } from "./src/telegram-notifier.js";
+import { initProgressMonitor } from "./src/progress-monitor.js";
 
 export default function register(api: OpenClawPluginApi) {
   // 初始化核心生命周期管理器（跨模块共享状态）
   const lifecycle = new AutomatonLifecycleManager(api);
+
+  // Initialize Telegram notifier (reads config, no-op if disabled)
+  const _telegramNotifier = createTelegramNotifier(api, lifecycle);
+
+  initProgressMonitor(api, lifecycle);
 
   // 工具 1: automaton_check_wallet (原 check_spend)
   const checkSpendTool = createSpendTrackerTool(api, lifecycle) as unknown as AnyAgentTool;
@@ -42,5 +49,5 @@ export default function register(api: OpenClawPluginApi) {
   api.registerTool(reflectTool as unknown as AnyAgentTool, { name: reflectTool.name });
   api.registerTool(updateTool as unknown as AnyAgentTool, { name: updateTool.name });
 
-  api.logger?.info?.("automaton-lifecycle: 9 tools registered successfully.");
+  api.logger?.info?.("automaton-lifecycle: 9 tools + telegram-notifier registered successfully.");
 }

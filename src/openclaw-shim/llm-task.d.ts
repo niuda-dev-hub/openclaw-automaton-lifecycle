@@ -6,6 +6,7 @@ export interface OpenClawPluginApi {
     debug?: (...args: unknown[]) => void
   }
   registerTool: (tool: unknown, options: { name: string }) => void
+  on?: (event: string, handler: (...args: unknown[]) => void) => void
   pluginConfig?: Record<string, unknown>
   config?: {
     agents?: {

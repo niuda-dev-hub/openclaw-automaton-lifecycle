@@ -7,6 +7,29 @@
 
 ---
 
+## 开发关键步骤与当前进度
+
+关键步骤（按顺序）：
+
+1. 启动并验证 `openclaw-agent-hub` 可用（本插件依赖 Hub 提供 wallet/heartbeat/memory/soul API）。
+2. 安装并启用本插件（`node scripts/manage.js install`）。
+3. 配置 `.env`（至少 `AGENT_HUB_URL`），触发插件工具并观察 Hub 数据变化。
+4. 如需通知能力：配置 Telegram notifier（默认关闭）。
+5. 如需 run 结束监控：启用 progress monitor（默认关闭）。
+
+当前进度：
+
+- ✅ 基础 9 个工具已实现并在入口注册。
+- ✅ 已集成 Telegram notifier（可选），并修复“通知内容出现 JSON/转义异常”的问题：默认使用纯文本输出。
+- ✅ 已集成 progress monitor（可选），在 `agent_end` 可用时发出 progress 事件并可通过 Telegram 发通知。
+- 🟡 事件驱动升级（使用 OpenClaw 官方 `api.on` hooks 做 tool/subagent 级别进度聚合）：已完成方案文档，尚未在本仓库实现。
+
+---
+
+## 文档索引（开发中）
+
+从这里开始：`docs/README.md`
+
 ## 与 `openclaw-agent-hub` 的关系（重要）
 
 这两个项目是配套关系，而不是重复功能：

@@ -26,7 +26,7 @@ export default function register(api: OpenClawPluginApi) {
   const lifecycle = new AutomatonLifecycleManager(api);
 
   // Initialize Telegram notifier (reads config, no-op if disabled)
-  const _telegramNotifier = createTelegramNotifier(api, lifecycle);
+  createTelegramNotifier(api, lifecycle);
 
   initProgressMonitor(api, lifecycle);
 

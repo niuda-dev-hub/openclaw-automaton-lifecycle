@@ -1,20 +1,6 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/llm-task";
 import type { AutomatonLifecycleManager } from "./lifecycle-manager.js";
 
-type ProgressMonitorCfg = {
-  enabled?: boolean;
-  useAi?: boolean;
-  aiUrl?: string;
-  aiKey?: string;
-  aiModel?: string;
-  notifyOnAiError?: boolean;
-  cooldownMs?: number;
-  monitorNoReply?: boolean;
-  monitorSlowReply?: boolean;
-  slowReplyThresholdMs?: number;
-  noReplyCooldownMs?: number;
-};
-
 type ResolvedCfg = {
   enabled: boolean;
   useAi: boolean;
@@ -205,6 +191,26 @@ export function initProgressMonitor(api: OpenClawPluginApi, lifecycle: Automaton
 
   let lastNotifyTime = 0;
   let lastNoReplyNotifyTime = 0;
+
+  (api as any).on("after_tool_call", (event: any, ctx: any) => {
+    try {
+      const toolName = typeof event?.toolName === "string" ? event.toolName : "";
+      const durationMs = typeof event?.durationMs === "number" ? event.durationMs : undefined;
+      const error = typeof event?.error === "string" ? event.error : undefined;
+      const runId = typeof event?.runId === "string" ? event.runId : undefined;
+      const sessionId = typeof ctx?.sessionId === "string" ? ctx.sessionId : undefined;
+
+      lifecycle.emitLifecycleEvent("openclaw:after_tool_call", {
+        toolName,
+        durationMs,
+        error,
+        runId,
+        sessionId,
+      });
+    } catch (err) {
+      api.logger?.warn?.(`[progress-monitor] after_tool_call hook handler failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  });
 
   (api as any).on("agent_end", async (event: any) => {
     const now = Date.now();

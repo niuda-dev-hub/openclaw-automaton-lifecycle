@@ -18,3 +18,4 @@
 - 2026-03-08: 仓库迁移到组织 + README 与 agent-hub 关联说明
 - 2026-03-08: 统一版本策略落地（`VERSIONING.md` / `CHANGELOG.md` / `release.yml`）
 - 2026-03-08: 新增项目全景与移交手册（`PROJECT_OVERVIEW.md` / `HANDOFF_RUNBOOK.md`）
+- 2026-03-13: 文档整理 + 事件驱动开发起步（`docs/dev-records/2026-03-13-docs-index-and-event-hook-bridge.md`）

@@ -11,6 +11,8 @@ npm run typecheck
 
 ## 手工 QA（涉及通知/格式）
 
+前置要求：本仓库使用 Node ESM + TypeScript（见 `package.json` 的 `type: module`）。下面的命令需要使用支持 TypeScript loader 的 Node 运行方式；如果你的环境无法直接 `node` 导入 `.ts`，请先用 `npm run typecheck` 确认类型正确，并在具备 TS loader 的环境中执行该段脚本。
+
 1. 生成通知文本（不依赖 Telegram 真发）：
 
 ```bash

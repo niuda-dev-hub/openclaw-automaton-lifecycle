@@ -2,7 +2,7 @@
 
 `openclaw-automaton-lifecycle` 是运行在 OpenClaw 侧的生命周期插件（thin client），用于为 Agent 提供预算感知、心跳节流、记忆沉淀和 SOUL 自省工具。
 
-本仓库已迁移到组织：
+本仓库已迁移到组织（后续以组织仓为主）：
 - GitHub: https://github.com/niuda-dev-hub/openclaw-automaton-lifecycle
 
 ---
@@ -29,6 +29,8 @@
 ## 文档索引（开发中）
 
 从这里开始：`docs/README.md`
+
+直达：`docs/configuration.md`（配置） / `docs/verification.md`（验证） / `docs/architecture.md`（架构）
 
 ## 与 `openclaw-agent-hub` 的关系（重要）
 

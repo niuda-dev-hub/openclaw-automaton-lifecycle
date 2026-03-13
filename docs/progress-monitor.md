@@ -33,9 +33,11 @@ Progress Monitor 通过 lifecycle 事件总线发出：
 - `progress:no_reply`
 - `progress:ai_notify`
 
-并同时发出 run 级事件：
+并同时发出 run 级内部事件：
 
 - `agent:end`
+
+说明：这里的 `agent:end` 是本插件内部事件命名（通过 lifecycle 事件总线发出），与 OpenClaw 官方 hook `agent_end`（宿主侧 `api.on("agent_end", ...)`）不是同一个层级。
 
 ## 设计约束
 

@@ -12,6 +12,11 @@
 - `AGENT_HUB_URL`
 - `AGENT_HUB_TOKEN`（可选）
 
+建议同时了解（多实例部署/身份隔离相关，详见根目录 README 的 `.env` 表格）：
+
+- `AGENT_ID`
+- `AGENT_IDENTITY_FILE`
+
 ## 2) Telegram notifier（可选）
 
 OpenClaw 插件 config：
